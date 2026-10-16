@@ -4,10 +4,21 @@
 
 This checkout is `d1r1/paseo`, Desk's fork of `getpaseo/paseo`. The `upstream` remote is `getpaseo/paseo`, pinned at `v0.11.4`.
 
-- Base work on `desk` and land it by PR into `desk`. `main` mirrors upstream and is never a base.
-- The repository is notarized. Commit with `notary commit -m "…" --issue <id>` and push with `notary push --issue <id>`. Never use `git commit` or `git push`.
-- Commit messages carry no tracker trailer.
-- To run the fork beside the released Paseo.app without touching `~/.paseo`, see [Running the fork beside the released app](docs/development.md#running-the-fork-beside-the-released-app).
+Changes to Paseo's UI and the work around them land here. Load the `paseo-fork` skill (`.agents/skills/paseo-fork/SKILL.md`) before you change Paseo's UI or land anything in the fork: it maps where the sidebar, screens and Command Center live and walks a change from edit to pull request.
+
+### Landing a change
+
+- **Base.** Branch from `origin/desk` and land by PR into `desk`. `main` mirrors upstream and is never a base.
+- **Branch.** `<type>/<slug>`: a conventional commit type (`feat`, `fix`, `chore`, `docs`), then a lowercase English kebab-case slug of at most 40 characters that states the goal. No tracker identifier in the name.
+- **Commit.** The repository is notarized. Commit with `notary commit -m "…" --issue <id>`. Never use `git commit` or `git push`. The message is a conventional commit with a scope, as the history shows (`docs(fork): …`), with no tracker trailer. `notary commit` runs no git hooks, so run `npm run format`, `npm run typecheck` and `npm run lint` yourself first.
+- **Push.** `notary push --issue <id>` pushes any branch except `main` and `desk`.
+- **Pull request.** `gh pr create --repo d1r1/paseo --base desk`. Never open one against `getpaseo/paseo`. The user merges.
+- **Checks.** Desk's flow receipt runs these in a fresh worktree, in this order: `npm ci --ignore-scripts`, `npm run postinstall`, `npm run build:server-deps`, `npm run build --workspace=@getpaseo/server`, `npm run typecheck`, `npm run lint`. The full test suite runs in GitHub CI only; locally run just the test files you changed (see Critical rules).
+- **Undo.** Revert a landed change by a revert PR into `desk`: branch from `origin/desk`, run `git revert --no-commit <sha>` (add `-m 1` for a merge commit), commit with `notary commit`, then push and open the PR as above. If the change altered dev state, run `env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI PASEO_DEV_SEED_HOME="$HOME/.paseo" PASEO_DEV_RESET_HOME=1 npm run dev:desktop` to reset and reseed the checkout's dev home, or stop the dev app and delete `.dev/paseo-home` for an empty one; the reset does nothing without `PASEO_DEV_SEED_HOME` ([PASEO_HOME](docs/development.md#paseo_home)). Keep `PASEO_HOME` out of the environment, as in the paragraph below: with it set to `~/.paseo`, the reset target is the released home and the start rewrites its `config.json`. Check that the printed `Home:` is `.dev/paseo-home` in your worktree before you go on. This touches the checkout's dev home only. Rolling back the installed Paseo.app is a separate step that this file does not cover.
+
+To run the fork beside the released Paseo.app without touching `~/.paseo`, see [Running the fork beside the released app](docs/development.md#running-the-fork-beside-the-released-app).
+
+An agent of the released Paseo inherits `PASEO_HOME=~/.paseo`, `PASEO_AGENT_ID`, `PASEO_AGENT_CWD` and `PASEO_CLI` from the released daemon, and the dev scripts then use `~/.paseo` as the dev home. Start the dev app as `env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI npm run dev:desktop` (add `-u` for any other `PASEO_*` variable `env | grep '^PASEO_'` lists), and check that the printed `Home:` is `.dev/paseo-home` in your worktree before you go on. Run `npm run cli` the same way. The `paseo-fork` skill has the steps.
 
 The rest of this file is the upstream text.
 
