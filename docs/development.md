@@ -75,19 +75,26 @@ In Paseo-managed worktree services, use the injected service environment rather 
 `npm run dev:desktop` runs this checkout's Electron app and daemon next to the released Paseo.app. The two share nothing unless you point one at the other's state.
 
 - **Port.** `packages/desktop/scripts/dev.sh` defaults `PASEO_LISTEN` to `127.0.0.1:6768`, and the `dev:desktop` script in `package.json` sets the same value. The released app keeps `6767`.
-- **Home.** With `PASEO_HOME` unset, `scripts/dev-home.sh` (`configure_dev_paseo_home`) uses `<checkout>/.dev/paseo-home`. It writes `daemon.listen` and `daemon.cors.allowedOrigins` into that home's `config.json` on every start (`configure_dev_daemon_config`). If your shell exports `PASEO_HOME`, the script uses that directory instead, so never export `~/.paseo` there.
+- **Home.** With `PASEO_HOME` unset, `scripts/dev-home.sh` (`configure_dev_paseo_home`) uses `<checkout>/.dev/paseo-home`. It writes `daemon.listen` and `daemon.cors.allowedOrigins` into that home's `config.json` on every start (`configure_dev_daemon_config`). If the environment has `PASEO_HOME`, the script uses that directory instead. An agent of the released Paseo inherits `PASEO_HOME=~/.paseo` (plus `PASEO_AGENT_ID`, `PASEO_AGENT_CWD` and `PASEO_CLI`) from the released daemon, so a plain start from an agent tab runs on the released app's home and rewrites its `config.json`. Start with the variables removed; add `-u` for any other `PASEO_` variable that `env | grep '^PASEO_'` lists:
+
+  ```bash
+  env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI npm run dev:desktop
+  ```
+
+  Before you go on, check that the `Home:` line the runner prints (`packages/desktop/scripts/dev.sh`) is `<checkout>/.dev/paseo-home`. If it shows `~/.paseo` or any other directory, press `Ctrl+C` and start again with the variables removed.
+
 - **Electron user data.** `<checkout>/.dev/user-data` (`dev-runtime-config.mjs`, applied through `PASEO_ELECTRON_USER_DATA_DIR` in `main.ts`). The released app's user data is not touched.
 - **No seeding by default.** The dev home starts empty. `scripts/dev-home.sh` seeds it only when `PASEO_DEV_SEED_HOME` is set, and nothing in the repo sets it. To start with the released app's agents and projects:
 
   ```bash
-  PASEO_DEV_SEED_HOME=~/.paseo npm run dev:desktop
+  env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI PASEO_DEV_SEED_HOME=~/.paseo npm run dev:desktop
   ```
 
   The seed copies the `*.json` files under `agents/` and `projects/`, plus `config.json`, and nothing else, so plugins, the daemon log, pid files and sockets stay behind. `config.json` carries the released daemon's settings into the dev home, and `daemon.listen` is then rewritten to `6768`.
 
-- **Later runs.** The seed runs once. A home that already has any file in it is kept as it is, even when `PASEO_DEV_SEED_HOME` is set (`has_files`). That includes a home an earlier unseeded run created. `PASEO_DEV_RESET_HOME=1` deletes the dev home and seeds it again.
+- **Later runs.** The seed runs once. A home that already has any file in it is kept as it is, even when `PASEO_DEV_SEED_HOME` is set (`has_files`). That includes a home an earlier unseeded run created. `PASEO_DEV_RESET_HOME=1` (with the same `env -u` prefix) deletes the dev home and seeds it again.
 - **Stopping.** Press `Ctrl+C` in the terminal that runs `npm run dev:desktop`. The runner (`dev-runner.mjs`) stops Metro and Electron, and Electron stops its daemon on quit unless the desktop setting `daemon.keepRunningAfterQuit` is on (`quit-lifecycle.ts`). To check or stop the dev daemon by hand, use the CLI below.
-- **CLI.** `npm run cli -- ls -a -g` targets the dev home (`scripts/dev-home.sh`). `npm run cli -- daemon status` shows which daemon answers. An installed `paseo` CLI defaults to `~/.paseo`, the released daemon, so point it at the dev home with `PASEO_HOME=<checkout>/.dev/paseo-home` or `--home <checkout>/.dev/paseo-home`. `--home` and `--host` cannot be combined, and neither can `PASEO_HOME` and `PASEO_HOST` (`packages/cli/src/utils/daemon-target.ts`).
+- **CLI.** `npm run cli -- ls -a -g` targets the dev home (`scripts/dev-home.sh`). `npm run cli -- daemon status` shows which daemon answers. Run `npm run cli` with the same `env -u` prefix: with `PASEO_HOME` set, the wrapper targets the released daemon. An installed `paseo` CLI defaults to `~/.paseo`, the released daemon, so point it at the dev home with `PASEO_HOME=<checkout>/.dev/paseo-home` or `--home <checkout>/.dev/paseo-home`. `--home` and `--host` cannot be combined, and neither can `PASEO_HOME` and `PASEO_HOST` (`packages/cli/src/utils/daemon-target.ts`).
 
 **Do not resume or prompt a seeded agent from the dev app.** A seeded agent record keeps its `persistence` handle (`docs/data-model.md`), which points at the same provider session the released daemon drives. Resuming it in the dev app starts a second daemon writing to that one session. Create new agents in the dev app instead, and treat the seeded list as read-only.
 
