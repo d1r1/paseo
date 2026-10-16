@@ -98,6 +98,23 @@ In Paseo-managed worktree services, use the injected service environment rather 
 
 **Do not resume or prompt a seeded agent from the dev app.** A seeded agent record keeps its `persistence` handle (`docs/data-model.md`), which points at the same provider session the released daemon drives. Resuming it in the dev app starts a second daemon writing to that one session. Create new agents in the dev app instead, and treat the seeded list as read-only.
 
+### Desk's board in the sidebar
+
+In the desktop app, the sidebar can list workspaces in the order of Desk's board file, `issues/board.json`. Desk's `docs/triage.md` owns the file's format (schema 1) and how it is refreshed; this section covers only what the fork does with it.
+
+Turn it on in Settings > Sidebar > Board file: paste the absolute path of the file and press Save. The path is stored as `boardFilePath` in `desktop-settings.json` (default empty, so the board is off). There is no implicit Desk path. Clear empties it. Web and mobile have no such field and always show the usual sidebar.
+
+- **Who reads the file.** The Electron main process, through the `read_board_file` command on the existing `paseo:invoke` bridge (`packages/desktop/src/features/board-file/`). The renderer never reads a path itself; it asks, and the answer names the path it was read for, so an answer for an earlier path is dropped. No protocol or daemon change.
+- **When.** Right away when the sidebar is active or the path changes, then every 60 seconds while it is active. A restart is not needed after Desk's LaunchAgent rewrites the file.
+- **Which file is valid.** `schema` 1 with `generatedAt` and an `issues` array whose every entry has the keys and types in `docs/triage.md`. Keys the reader does not know are ignored. A missing or unreadable file, bad JSON, another schema, a repeated Issue id or a parent cycle makes the board unavailable.
+- **Unavailable means the old sidebar.** The sidebar is exactly what it was without a board: same projects, groups, pins and order. It stays that way until a later read succeeds. A board that was read earlier is not kept.
+- **Matching.** A workspace belongs to Issue `DSK-N` when its name starts with `DSK-N` followed by a space or the end of the name (`DSK-36 sidebar order`). Branches, paths and names that only contain the id do not match.
+- **Order.** The matched workspaces form one block above everything else, across projects, in both project and status grouping. A parent's workspaces come first and its sub-issues' follow, indented one step each, up to three steps. Siblings and top-level Issues go by ascending `sortOrder`; Issues with equal values keep the order the board file lists them in, and several workspaces of one Issue keep the sidebar's own order. The direction of `sortOrder` is checked against Linear's view by whoever accepts the change. An Issue with no visible workspace adds no row, and its matched sub-issues move up one level.
+- **Row.** Each board row shows the Issue's Linear `status` and, when `run.step` is not null, that step: `In Progress · challenge`. A null `run` or a null step shows the status alone.
+- **Everything else is unchanged.** The block only takes its workspaces out of the project, status and Pinned lists below it, so each shows once. Stored project order, workspace order and pins are neither read differently nor rewritten, and they apply again when the board is off. Host, project and label filters still decide which workspaces are eligible. Unmatched workspaces keep their grouping, pinning and order. A project whose every eligible workspace moved into the block gets no group below it, so no header is left with only its New workspace row; a project with one unmatched workspace left renders as before. Board rows keep their project's icon either way. The block has no collapse control and no drag.
+
+Code: `components/sidebar/sidebar-board.ts` (matching and order, pure), `components/sidebar/use-sidebar-board.electron.ts` (path, polling; web and native resolve `use-sidebar-board.ts`, which has no board), `components/sidebar/sidebar-model.tsx` (where the block is taken out of the lists), `screens/settings/sidebar/board-file-section.tsx` (the setting).
+
 ### Expo Router
 
 Route ownership, startup restore, and native blank-screen gotchas live in

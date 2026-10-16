@@ -81,6 +81,7 @@ describe("desktop-settings", () => {
 
     expect(settings).toEqual({
       releaseChannel: "stable",
+      boardFilePath: "",
       notifications: { playSound: true },
       daemon: {
         manageBuiltInDaemon: true,
@@ -103,6 +104,7 @@ describe("desktop-settings", () => {
 
     expect(next).toEqual({
       releaseChannel: "beta",
+      boardFilePath: "",
       notifications: { playSound: true },
       daemon: {
         manageBuiltInDaemon: true,
@@ -270,6 +272,7 @@ describe("desktop-settings", () => {
 
     expect(migrated).toEqual({
       releaseChannel: "beta",
+      boardFilePath: "",
       notifications: { playSound: true },
       daemon: {
         manageBuiltInDaemon: false,
@@ -315,6 +318,7 @@ describe("desktop-settings", () => {
     expect(persisted.settings.releaseChannel).toBe("beta");
     expect(next).toEqual({
       releaseChannel: "beta",
+      boardFilePath: "",
       notifications: { playSound: false },
       daemon: { manageBuiltInDaemon: true, keepRunningAfterQuit: false },
     });
@@ -362,5 +366,66 @@ describe("desktop-settings", () => {
 
     expect(persisted.settings.releaseChannel).toBe("stable");
     expect(persisted.settings.tray).toEqual({ enabled: true });
+  });
+  describe("boardFilePath", () => {
+    it("is empty by default", async () => {
+      const userDataPath = await createTempUserDataDir();
+      directories.add(userDataPath);
+      const store = createDesktopSettingsStore({ userDataPath });
+
+      expect((await store.get()).boardFilePath).toBe("");
+    });
+
+    it("saves an absolute path, keeps it across a reload and clears it with an empty string", async () => {
+      const userDataPath = await createTempUserDataDir();
+      directories.add(userDataPath);
+      const boardPath = path.join(userDataPath, "board.json");
+      const store = createDesktopSettingsStore({ userDataPath });
+
+      const saved = await store.patch({ boardFilePath: `  ${boardPath}  ` });
+      const reloaded = await createDesktopSettingsStore({ userDataPath }).get();
+      const cleared = await store.patch({ boardFilePath: "" });
+      const reloadedAfterClear = await createDesktopSettingsStore({ userDataPath }).get();
+
+      expect(saved.boardFilePath).toBe(boardPath);
+      expect(reloaded.boardFilePath).toBe(boardPath);
+      expect(cleared.boardFilePath).toBe("");
+      expect(reloadedAfterClear.boardFilePath).toBe("");
+    });
+
+    it("ignores a relative or non-string patch and keeps the saved path", async () => {
+      const userDataPath = await createTempUserDataDir();
+      directories.add(userDataPath);
+      const boardPath = path.join(userDataPath, "board.json");
+      const store = createDesktopSettingsStore({ userDataPath });
+      await store.patch({ boardFilePath: boardPath });
+
+      expect((await store.patch({ boardFilePath: "issues/board.json" })).boardFilePath).toBe(
+        boardPath,
+      );
+      expect((await store.patch({ boardFilePath: 42 })).boardFilePath).toBe(boardPath);
+    });
+
+    it("reads a relative or non-string persisted value as none", async () => {
+      const userDataPath = await createTempUserDataDir();
+      directories.add(userDataPath);
+      await writeFile(
+        settingsFilePath(userDataPath),
+        JSON.stringify({ version: 1, settings: { boardFilePath: "issues/board.json" } }),
+      );
+
+      expect((await createDesktopSettingsStore({ userDataPath }).get()).boardFilePath).toBe("");
+    });
+
+    it("leaves other settings alone when the path changes", async () => {
+      const userDataPath = await createTempUserDataDir();
+      directories.add(userDataPath);
+      const store = createDesktopSettingsStore({ userDataPath });
+      await store.patch({ notifications: { playSound: false } });
+
+      const next = await store.patch({ boardFilePath: path.join(userDataPath, "board.json") });
+
+      expect(next.notifications.playSound).toBe(false);
+    });
   });
 });

@@ -39,6 +39,16 @@ export interface SidebarProjection {
 export interface SidebarProjectionInput {
   projects: SidebarProjectEntry[];
   pinnedKeys: PinnedSidebarKeys;
+  /**
+   * The board block, shown above everything else. Its workspaces are already out of `projects` and
+   * `workspaceEntriesByKey`, so the projection only has to number them for the shortcuts.
+   */
+  boardWorkspaces?: readonly SidebarWorkspaceEntry[];
+  /**
+   * The projects whose icons the rows can paint, when that is more than `projects`: a project the
+   * board emptied has no group left, but its board rows still show its icon. Defaults to `projects`.
+   */
+  iconProjects?: readonly SidebarProjectEntry[];
   pinnedWorkspaceOrder: string[];
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   projectNamesByViewKey: Map<string, string>;
@@ -65,6 +75,9 @@ export function buildSidebarProjection(input: SidebarProjectionInput): SidebarPr
   const workspaceGroups = buildWorkspaceGroups(input, unpinnedWorkspaces);
 
   const sections: SidebarShortcutSection[] = [];
+  if (input.boardWorkspaces && input.boardWorkspaces.length > 0) {
+    sections.push({ workspaces: input.boardWorkspaces });
+  }
   if (!input.pinnedCollapsed) {
     sections.push({ workspaces: pinnedGroups.pinnedChats });
   }
@@ -87,7 +100,7 @@ export function buildSidebarProjection(input: SidebarProjectionInput): SidebarPr
   return {
     pinnedGroups,
     workspaceGroups,
-    projectIconTargets: resolveSidebarProjectIconTargets(input.projects),
+    projectIconTargets: resolveSidebarProjectIconTargets(input.iconProjects ?? input.projects),
     shortcutModel: buildSidebarShortcutSections({ sections }),
   };
 }

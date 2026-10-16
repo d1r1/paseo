@@ -2304,6 +2304,17 @@ export const ru: TranslationResources = {
         },
         moveUp: "Переместить вверх",
         moveDown: "Переместить вниз",
+        boardFile: {
+          title: "Файл доски",
+          description:
+            "Показывает рабочие пространства из файла доски Desk в порядке доски, над остальной частью боковой панели",
+          label: "Путь к файлу доски",
+          hint: "Абсолютный путь к board.json из Desk. Оставьте пустым, чтобы отключить доску",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "Введите абсолютный путь",
+          save: "Сохранить",
+          clear: "Очистить",
+        },
       },
       fonts: {
         title: "Шрифты",

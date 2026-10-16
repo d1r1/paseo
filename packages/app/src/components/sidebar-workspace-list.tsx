@@ -220,6 +220,8 @@ interface SidebarWorkspaceListProps {
   /** Whether a project filter is actually being applied — the resolved list, not the stored one. */
   hasActiveProjectFilter: boolean;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
+  /** Desk's board block, listed above everything else in either grouping. See `SidebarModel`. */
+  boardWorkspaces: SidebarWorkspaceEntry[];
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectViewKey: string) => void;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -1889,6 +1891,7 @@ export function SidebarWorkspaceList({
   hasProjectsBeforeFilter,
   hasActiveProjectFilter,
   workspaceEntriesByKey,
+  boardWorkspaces,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
   shortcutIndexByWorkspaceKey,
@@ -1968,6 +1971,7 @@ export function SidebarWorkspaceList({
         workspaceGroups={workspaceGroups}
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
+        boardWorkspaces={boardWorkspaces}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
         onWorkspacePress={onWorkspacePress}
@@ -1985,6 +1989,7 @@ export function SidebarWorkspaceList({
         projects={projects}
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
+        boardWorkspaces={boardWorkspaces}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         collapsedProjectKeys={collapsedProjectKeys}
         onToggleProjectCollapsed={onToggleProjectCollapsed}
@@ -2020,6 +2025,7 @@ function SidebarGroupedModeList({
   workspaceGroups,
   pinnedGroups,
   workspaceEntriesByKey,
+  boardWorkspaces,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey: _projectShortcutIndex,
   onWorkspacePress,
@@ -2035,6 +2041,7 @@ function SidebarGroupedModeList({
   workspaceGroups: SidebarWorkspaceGroup[];
   pinnedGroups: PinnedSidebarGroups;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
+  boardWorkspaces: SidebarWorkspaceEntry[];
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   onWorkspacePress?: () => void;
@@ -2060,6 +2067,7 @@ function SidebarGroupedModeList({
   return (
     <SidebarStatusWorkspaceList
       groups={workspaceGroups}
+      boardWorkspaces={boardWorkspaces}
       pinnedWorkspaces={pinnedWorkspaces}
       projectIconByProjectViewKey={projectIconByProjectViewKey}
       shortcutIndexByWorkspaceKey={_projectShortcutIndex}
@@ -2081,6 +2089,7 @@ function ProjectModeList({
   projects,
   pinnedGroups,
   workspaceEntriesByKey,
+  boardWorkspaces,
   projectIconByProjectViewKey,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
@@ -2394,6 +2403,42 @@ function ProjectModeList({
     ],
   );
 
+  const renderBoardRow = useCallback(
+    (workspace: SidebarWorkspaceEntry) => (
+      <MemoWorkspaceRowItem
+        key={workspace.workspaceKey}
+        workspace={workspace}
+        workspaceEntry={workspace}
+        hostBadge={hostBadgeByServerId.get(workspace.serverId) ?? null}
+        leadingProjectName={workspace.projectName}
+        leadingProjectIconDataUri={
+          projectIconByProjectViewKey.get(workspace.projectViewKey) ?? null
+        }
+        shortcutNumber={shortcutIndexByWorkspaceKey.get(workspace.workspaceKey) ?? null}
+        showShortcutBadge={showShortcutBadges}
+        canCopyBranchName={workspace.projectKind === "git"}
+        canPin={supportsPinningByServerId.get(workspace.serverId) === true}
+        onToggleWorkspacePin={onToggleWorkspacePin}
+        isCreating={creatingWorkspaceIds.has(workspace.workspaceId)}
+        selectionEnabled={selectionEnabled}
+        activeWorkspaceSelection={activeWorkspaceSelection}
+        onWorkspacePress={onWorkspacePress}
+      />
+    ),
+    [
+      activeWorkspaceSelection,
+      creatingWorkspaceIds,
+      hostBadgeByServerId,
+      onWorkspacePress,
+      projectIconByProjectViewKey,
+      selectionEnabled,
+      shortcutIndexByWorkspaceKey,
+      showShortcutBadges,
+      supportsPinningByServerId,
+      onToggleWorkspacePin,
+    ],
+  );
+
   const projectBody =
     projects.length === 0 ? (
       <SidebarProjectEmptyState onAddProject={onAddProject} onImportSession={onImportSession} />
@@ -2416,6 +2461,11 @@ function ProjectModeList({
 
   const content = (
     <>
+      {boardWorkspaces.length > 0 ? (
+        <View style={styles.boardSection} testID="sidebar-board-section">
+          {boardWorkspaces.map(renderBoardRow)}
+        </View>
+      ) : null}
       {pinnedChats.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
           <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />
@@ -2453,6 +2503,7 @@ function ProjectModeList({
         project whose chats are all pinned leaves `unpinnedProjects` empty, and without its term
         the header would go with it, taking the only route back to the filter page. */}
       {unpinnedProjects.length > 0 ||
+      boardWorkspaces.length > 0 ||
       hasActiveHostFilter ||
       hasActiveProjectFilter ||
       sidebarFilterEmpty
@@ -2507,6 +2558,9 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
   },
   pinnedSection: {
+    marginBottom: theme.spacing[1],
+  },
+  boardSection: {
     marginBottom: theme.spacing[1],
   },
   // Three times the gap a row keeps from its neighbour, so the break between two groups reads as

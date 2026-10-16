@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import type { WorkspaceTitleSource } from "@/hooks/use-settings";
 import { getStatusBucketLabel } from "@/hooks/sidebar-status-view-model";
+import { formatBoardCaption } from "@/components/sidebar/sidebar-board";
 
 export function resolveSidebarWorkspacePrimaryLabel(input: {
   workspace: Pick<SidebarWorkspaceEntry, "name" | "currentBranch">;
@@ -14,7 +15,7 @@ export function resolveSidebarWorkspacePrimaryLabel(input: {
 }
 
 export function resolveSidebarWorkspaceAccessibilityLabel(input: {
-  workspace: Pick<SidebarWorkspaceEntry, "name" | "currentBranch" | "statusBucket">;
+  workspace: Pick<SidebarWorkspaceEntry, "name" | "currentBranch" | "statusBucket" | "board">;
   workspaceTitleSource: WorkspaceTitleSource;
   leadingProjectName?: string | null;
   hostBadgeLabel?: string | null;
@@ -28,6 +29,7 @@ export function resolveSidebarWorkspaceAccessibilityLabel(input: {
     input.hostBadgeLabel,
     input.pullRequestLabel,
     input.serviceLabel,
+    input.workspace.board ? formatBoardCaption(input.workspace.board) : null,
     input.workspace.statusBucket === "done"
       ? null
       : getStatusBucketLabel(input.workspace.statusBucket, input.t),

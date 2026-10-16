@@ -2300,6 +2300,17 @@ export const ptBR: TranslationResources = {
         },
         moveUp: "Mover para cima",
         moveDown: "Mover para baixo",
+        boardFile: {
+          title: "Arquivo do quadro",
+          description:
+            "Mostra os espaços de trabalho do arquivo do quadro do Desk na ordem do quadro, acima do resto da barra lateral",
+          label: "Caminho do arquivo do quadro",
+          hint: "Caminho absoluto do board.json do Desk. Deixe vazio para desativar o quadro",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "Informe um caminho absoluto",
+          save: "Salvar",
+          clear: "Limpar",
+        },
       },
       fonts: {
         title: "Fontes",

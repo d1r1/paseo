@@ -23,6 +23,7 @@ Paths are under `packages/app/src/`. The app is Expo (iOS, Android, web, Electro
 | Which header and footer items show and in what order                                    | `sidebar-nav/model.ts`, read through `sidebar-nav/use-sidebar-nav-items.ts`                                       |
 | The data a sidebar row shows                                                            | `hooks/use-sidebar-workspaces-list.ts` (list) and `hooks/sidebar-workspaces-view-model.ts` (row model)            |
 | Sidebar display preferences (grouping, filters, labels), persisted                      | `stores/sidebar-view-store.ts`                                                                                    |
+| Desk's board block (board-ordered workspaces) and its path setting                      | `components/sidebar/sidebar-board.ts`, [contract](../../../docs/development.md#desks-board-in-the-sidebar)        |
 | The Sidebar settings page                                                               | `screens/settings/sidebar/`                                                                                       |
 | A route or what a URL opens                                                             | `app/` (Expo Router; `app/h/[serverId]/` holds the per-host routes)                                               |
 | A screen's content                                                                      | `screens/` (settings, new workspace, projects, schedules, sessions, workspace)                                    |

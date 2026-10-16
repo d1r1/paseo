@@ -114,6 +114,8 @@ function statusWorkspaceKeyExtractor(workspace: SidebarWorkspaceEntry): string {
 
 interface StatusWorkspaceListProps {
   groups: SidebarWorkspaceGroup[];
+  /** Desk's board block, above the Pinned section. Not grouped by status. */
+  boardWorkspaces: SidebarWorkspaceEntry[];
   pinnedWorkspaces: SidebarWorkspaceEntry[];
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -132,6 +134,7 @@ interface StatusWorkspaceListProps {
 
 export function SidebarStatusWorkspaceList({
   groups,
+  boardWorkspaces,
   pinnedWorkspaces,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey,
@@ -200,6 +203,27 @@ export function SidebarStatusWorkspaceList({
   );
   const content = (
     <>
+      {boardWorkspaces.length > 0 ? (
+        <View style={styles.boardSection} testID="sidebar-board-section">
+          {boardWorkspaces.map((workspace) => (
+            <StatusWorkspaceRow
+              key={workspace.workspaceKey}
+              workspace={workspace}
+              {...buildStatusRowProjectPresentation({
+                workspace,
+                projectIconByProjectViewKey,
+                hostBadgeByServerId,
+              })}
+              inStatusGroup={false}
+              shortcutNumber={statusShortcutIndex.get(workspace.workspaceKey) ?? null}
+              showShortcutBadge={showShortcutBadges}
+              canPin={supportsPinningByServerId.get(workspace.serverId) === true}
+              onToggleWorkspacePin={onToggleWorkspacePin}
+              onWorkspacePress={onWorkspacePress}
+            />
+          ))}
+        </View>
+      ) : null}
       {pinnedWorkspaces.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
           <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />
@@ -1050,6 +1074,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing[4],
   },
   pinnedSection: {
+    marginBottom: theme.spacing[1],
+  },
+  boardSection: {
     marginBottom: theme.spacing[1],
   },
   // Matches `projectBlockExpanded` in sidebar-workspace-list.tsx. See the note there.

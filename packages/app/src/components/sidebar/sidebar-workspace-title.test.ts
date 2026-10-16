@@ -77,4 +77,19 @@ describe("resolveSidebarWorkspaceAccessibilityLabel", () => {
 
     expect(label).toBe("Search project, Investigate search, Build host");
   });
+
+  it("adds the board status and run step to the accessible label of a board row", () => {
+    const label = resolveSidebarWorkspaceAccessibilityLabel({
+      workspace: {
+        name: "DSK-36 sidebar",
+        currentBranch: null,
+        statusBucket: "done",
+        board: { issueId: "DSK-36", depth: 1, status: "In Progress", step: "challenge" },
+      },
+      workspaceTitleSource: "title",
+      t: i18n.t,
+    });
+
+    expect(label).toBe("DSK-36 sidebar, In Progress · challenge");
+  });
 });

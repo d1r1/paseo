@@ -2276,6 +2276,17 @@ export const ko: TranslationResources = {
         },
         moveUp: "위로 이동",
         moveDown: "아래로 이동",
+        boardFile: {
+          title: "보드 파일",
+          description:
+            "Desk 보드 파일에 있는 워크스페이스를 보드 순서대로 사이드바 맨 위에 표시합니다",
+          label: "보드 파일 경로",
+          hint: "Desk board.json의 절대 경로. 비워 두면 보드를 끕니다",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "절대 경로를 입력하세요",
+          save: "저장",
+          clear: "지우기",
+        },
       },
       fonts: {
         title: "글꼴",

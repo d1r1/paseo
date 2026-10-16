@@ -8,6 +8,8 @@ import type { AppReleaseChannel } from "../features/auto-updater.js";
 
 export interface DesktopSettings {
   releaseChannel: AppReleaseChannel;
+  /** Absolute path of Desk's board file, or "" for none. The renderer never reads it itself. */
+  boardFilePath: string;
   notifications: {
     playSound: boolean;
   };
@@ -19,6 +21,7 @@ export interface DesktopSettings {
 
 interface DesktopSettingsPatch {
   releaseChannel?: AppReleaseChannel;
+  boardFilePath?: string;
   notifications?: Partial<DesktopSettings["notifications"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
@@ -31,6 +34,7 @@ export interface DesktopSettingsStore {
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
+  boardFilePath: "",
   notifications: {
     playSound: true,
   },
@@ -43,6 +47,21 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
 const DESKTOP_SETTINGS_FILENAME = "desktop-settings.json";
 
 const ReleaseChannelSchema = z.enum(["stable", "beta"]);
+
+// A relative path would resolve against the app's working directory, so only an absolute path
+// (or "" for none) is a board file path. Anything else reads as "none".
+function normalizeBoardFilePath(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" || path.isAbsolute(trimmed) ? trimmed : null;
+}
+
+const BoardFilePathSchema = z
+  .string()
+  .transform((value) => normalizeBoardFilePath(value) ?? DEFAULT_DESKTOP_SETTINGS.boardFilePath)
+  .catch(DEFAULT_DESKTOP_SETTINGS.boardFilePath);
 
 const NotificationsSchema = z
   .looseObject({
@@ -60,6 +79,7 @@ const DaemonSchema = z
 const DesktopSettingsSchema = z
   .looseObject({
     releaseChannel: ReleaseChannelSchema.catch(DEFAULT_DESKTOP_SETTINGS.releaseChannel),
+    boardFilePath: BoardFilePathSchema,
     notifications: NotificationsSchema,
     daemon: DaemonSchema,
   })
@@ -106,6 +126,7 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 function buildDefaultSettings(): StoredDesktopSettings {
   return {
     releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
+    boardFilePath: DEFAULT_DESKTOP_SETTINGS.boardFilePath,
     notifications: { ...DEFAULT_DESKTOP_SETTINGS.notifications },
     daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
   };
@@ -125,6 +146,7 @@ function buildDefaultDocument(): PersistedDesktopSettingsDocument {
 function toDesktopSettings(stored: StoredDesktopSettings): DesktopSettings {
   return {
     releaseChannel: stored.releaseChannel,
+    boardFilePath: stored.boardFilePath,
     notifications: { playSound: stored.notifications.playSound },
     daemon: {
       manageBuiltInDaemon: stored.daemon.manageBuiltInDaemon,
@@ -142,6 +164,11 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
   const releaseChannel = coerceReleaseChannel(input.releaseChannel);
   if (releaseChannel) {
     patch.releaseChannel = releaseChannel;
+  }
+
+  const boardFilePath = normalizeBoardFilePath(input.boardFilePath);
+  if (boardFilePath !== null) {
+    patch.boardFilePath = boardFilePath;
   }
 
   if (isRecord(input.notifications)) {
@@ -197,6 +224,7 @@ function mergeDesktopSettings(
   return {
     ...current,
     releaseChannel: patch.releaseChannel ?? current.releaseChannel,
+    boardFilePath: patch.boardFilePath ?? current.boardFilePath,
     notifications: { ...current.notifications, ...patch.notifications },
     daemon: { ...current.daemon, ...patch.daemon },
   };

@@ -35,6 +35,17 @@ export interface SidebarStatusWorkspacePlacement extends SidebarWorkspacePlaceme
   statusEnteredAt: Date | null;
 }
 
+/** What the board file says about a workspace's Issue, for the row that shows it. */
+export interface SidebarBoardRowInfo {
+  issueId: string;
+  /** How many matched ancestors the Issue has; a missing ancestor adds no level. */
+  depth: number;
+  /** The Issue's Linear status, as the board file spells it. */
+  status: string;
+  /** The run step, or null when the Issue has no run or the run has no step. */
+  step: string | null;
+}
+
 export interface SidebarWorkspaceEntry extends SidebarStatusWorkspacePlacement {
   workspaceDirectory: string;
   workspaceDirectoryLabel: string;
@@ -52,6 +63,8 @@ export interface SidebarWorkspaceEntry extends SidebarStatusWorkspacePlacement {
   archiveUnpushedCommitCount: number | null;
   scripts: WorkspaceDescriptor["scripts"];
   hasRunningScripts: boolean;
+  /** Set only on rows of the board block, which Desk's board file orders. */
+  board?: SidebarBoardRowInfo;
 }
 
 export interface SidebarProjectEntry {

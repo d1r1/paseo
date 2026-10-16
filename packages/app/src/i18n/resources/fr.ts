@@ -2315,6 +2315,17 @@ export const fr: TranslationResources = {
         },
         moveUp: "Monter",
         moveDown: "Descendre",
+        boardFile: {
+          title: "Fichier du tableau",
+          description:
+            "Affiche les espaces de travail du fichier de tableau de Desk dans l'ordre du tableau, au-dessus du reste de la barre latérale",
+          label: "Chemin du fichier du tableau",
+          hint: "Chemin absolu du board.json de Desk. Laissez vide pour désactiver le tableau",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "Saisissez un chemin absolu",
+          save: "Enregistrer",
+          clear: "Effacer",
+        },
       },
       fonts: {
         title: "Polices",
