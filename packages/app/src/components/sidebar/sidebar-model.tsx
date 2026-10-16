@@ -17,6 +17,8 @@ import {
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
+import { splitSidebarBoard } from "./sidebar-board";
+import { useSidebarBoard } from "./use-sidebar-board";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
@@ -27,6 +29,12 @@ import {
 
 interface SidebarModel extends SidebarWorkspacesListResult {
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
+  /**
+   * The workspaces Desk's board file orders, in board order, each with its Issue's status and run
+   * step. Empty without a usable board or a match. They are listed here only: `pinnedGroups`,
+   * `workspaceGroups` and each project's rows leave them out so every workspace shows once.
+   */
+  boardWorkspaces: SidebarWorkspaceEntry[];
   /**
    * Every project the sidebar could show, before any filter narrows it.
    *
@@ -140,13 +148,31 @@ export function SidebarModelProvider({
     list.projects,
     visibleWorkspaceKeys,
   ]);
-  const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
+  // The board only reorders and annotates: the stored project, workspace and pin orders are read
+  // and written as before, and a workspace the board takes is just left out of the lists below it.
+  const board = useSidebarBoard({ enabled: active !== false });
+  const {
+    boardWorkspaces,
+    projects: unboardedProjects,
+    workspaceEntriesByKey: unboardedWorkspaceEntriesByKey,
+  } = useMemo(
+    () =>
+      splitSidebarBoard({
+        board,
+        projects: filteredProjects,
+        workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+      }),
+    [board, filteredProjects, filteredWorkspaceEntriesByKey],
+  );
+  const pinnedKeys = usePinnedSidebarKeys(unboardedProjects);
   const projectionInput = useMemo(
     () => ({
-      projects: filteredProjects,
+      projects: unboardedProjects,
       pinnedKeys,
+      boardWorkspaces,
+      iconProjects: filteredProjects,
       pinnedWorkspaceOrder,
-      workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+      workspaceEntriesByKey: unboardedWorkspaceEntriesByKey,
       projectNamesByViewKey: list.projectNamesByViewKey,
       groupMode,
       pinnedCollapsed,
@@ -159,11 +185,13 @@ export function SidebarModelProvider({
       collapsedWorkspaceGroupKeys,
       groupMode,
       list.projectNamesByViewKey,
+      unboardedProjects,
       filteredProjects,
+      boardWorkspaces,
       pinnedCollapsed,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      filteredWorkspaceEntriesByKey,
+      unboardedWorkspaceEntriesByKey,
       t,
     ],
   );
@@ -176,6 +204,7 @@ export function SidebarModelProvider({
       resolvedProjectFilters,
       hasProjectsBeforeFilter: list.projects.length > 0,
       workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+      boardWorkspaces,
       groupMode,
       workspaceGroups: projection.workspaceGroups,
       projectIconTargets: projection.projectIconTargets,
@@ -193,6 +222,7 @@ export function SidebarModelProvider({
       projection,
       toggleProjectCollapsed,
       filteredWorkspaceEntriesByKey,
+      boardWorkspaces,
     ],
   );
 

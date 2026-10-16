@@ -2318,6 +2318,17 @@ export const es: TranslationResources = {
         },
         moveUp: "Mover hacia arriba",
         moveDown: "Mover hacia abajo",
+        boardFile: {
+          title: "Archivo del tablero",
+          description:
+            "Muestra los espacios de trabajo del archivo del tablero de Desk en el orden del tablero, sobre el resto de la barra lateral",
+          label: "Ruta del archivo del tablero",
+          hint: "Ruta absoluta del board.json de Desk. Déjala vacía para desactivar el tablero",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "Introduce una ruta absoluta",
+          save: "Guardar",
+          clear: "Borrar",
+        },
       },
       fonts: {
         title: "Fuentes",

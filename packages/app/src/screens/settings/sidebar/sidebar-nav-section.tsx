@@ -29,6 +29,7 @@ import {
 import { resolvePluginIcon } from "@/plugins/icons";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { settingsStyles } from "@/styles/settings";
+import { BoardFileSection } from "@/screens/settings/sidebar/board-file-section";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -179,12 +180,16 @@ function SidebarItemsCard({ section }: { section: SidebarSection }): ReactElemen
   );
 }
 
-/** Settings > Sidebar: one card per section. The footer's bottom line is fixed and not listed. */
+/**
+ * Settings > Sidebar: one card per section, then the board file card on desktop. The footer's
+ * bottom line is fixed and not listed.
+ */
 export function SidebarNavSection(): ReactElement {
   return (
     <>
       <SidebarItemsCard section="header" />
       <SidebarItemsCard section="footer" />
+      <BoardFileSection />
     </>
   );
 }

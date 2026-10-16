@@ -13,6 +13,8 @@ const DESKTOP_SETTINGS_QUERY_KEY = ["desktop-settings"] as const;
 
 export interface DesktopSettings {
   releaseChannel: ReleaseChannel;
+  /** Absolute path of Desk's board file, or "" for none. Read by the main process only. */
+  boardFilePath: string;
   notifications: {
     playSound: boolean;
   };
@@ -24,12 +26,14 @@ export interface DesktopSettings {
 
 export interface DesktopSettingsPatch {
   releaseChannel?: ReleaseChannel;
+  boardFilePath?: string;
   notifications?: Partial<DesktopSettings["notifications"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
 }
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   releaseChannel: "stable",
+  boardFilePath: "",
   notifications: {
     playSound: true,
   },
@@ -156,6 +160,10 @@ function parseDesktopSettings(raw: unknown): DesktopSettings {
 
   return {
     releaseChannel: record.releaseChannel === "beta" ? "beta" : "stable",
+    boardFilePath:
+      typeof record.boardFilePath === "string"
+        ? record.boardFilePath
+        : DEFAULT_DESKTOP_SETTINGS.boardFilePath,
     notifications: {
       playSound:
         typeof notifications.playSound === "boolean"
@@ -181,6 +189,7 @@ function mergeDesktopSettings(
 ): DesktopSettings {
   return {
     releaseChannel: updates.releaseChannel ?? current.releaseChannel,
+    boardFilePath: updates.boardFilePath ?? current.boardFilePath,
     notifications: {
       ...current.notifications,
       ...updates.notifications,
@@ -195,6 +204,7 @@ function mergeDesktopSettings(
 function normalizePatch(updates: DesktopSettingsPatch): Record<string, unknown> {
   return {
     ...(updates.releaseChannel ? { releaseChannel: updates.releaseChannel } : {}),
+    ...(updates.boardFilePath !== undefined ? { boardFilePath: updates.boardFilePath } : {}),
     ...(updates.notifications ? { notifications: updates.notifications } : {}),
     ...(updates.daemon ? { daemon: updates.daemon } : {}),
   };

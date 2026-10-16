@@ -11,6 +11,7 @@ import {
 import { WorkspaceHoverCard } from "@/components/workspace-hover-card";
 import type { HostBadgeModel } from "@/hosts/appearance";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
+import { formatBoardCaption } from "@/components/sidebar/sidebar-board";
 import {
   hasSidebarWorkspaceTrailing,
   type SidebarWorkspaceTrailing,
@@ -35,6 +36,9 @@ const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
   fill: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,
 });
+
+// Past this many levels a board row stops moving right; a deeper chain would squeeze the title.
+const MAX_BOARD_INDENT_LEVELS = 3;
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedMonitor = withUnistyles(Monitor);
@@ -135,9 +139,21 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
     [isHovered, isCreating],
   );
 
+  const board = workspace.board;
+  const boardCaption = board ? formatBoardCaption(board) : null;
+  const rowMainStyle = useMemo(
+    () => [
+      styles.workspaceRowMain,
+      board && board.depth > 0
+        ? styles.workspaceRowBoardIndent(Math.min(board.depth, MAX_BOARD_INDENT_LEVELS))
+        : null,
+    ],
+    [board],
+  );
+
   return (
     <View style={styles.workspaceRowContent}>
-      <View style={styles.workspaceRowMain}>
+      <View style={rowMainStyle}>
         {leadingProjectName ? (
           <ProjectStatusIndicator
             iconDataUri={leadingProjectIconDataUri}
@@ -171,6 +187,15 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
             serviceSummary={serviceSummary}
             labels={labels}
           />
+          {boardCaption ? (
+            <Text
+              style={styles.boardCaption}
+              numberOfLines={1}
+              testID={`sidebar-row-board-caption-${workspace.workspaceKey}`}
+            >
+              {boardCaption}
+            </Text>
+          ) : null}
         </View>
       </View>
       {showShortcutBadge && shortcutNumber !== null ? (
@@ -465,9 +490,19 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
     width: "100%",
   },
+  // Leading padding inside the row, like `rowIndented`, so the row's hover and selected fills keep
+  // spanning its full width. One step is the same width as that group indent.
+  workspaceRowBoardIndent: (levels: number) => ({
+    paddingLeft: levels * (theme.spacing[2] + theme.spacing[2]),
+  }),
   workspaceContentColumn: {
     flex: 1,
     minWidth: 0,
+  },
+  boardCaption: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 16,
   },
   workspaceTitleRow: {
     flexDirection: "row",

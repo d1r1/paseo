@@ -2239,6 +2239,16 @@ export const zhCN: TranslationResources = {
         },
         moveUp: "上移",
         moveDown: "下移",
+        boardFile: {
+          title: "看板文件",
+          description: "按看板顺序在侧边栏顶部显示 Desk 看板文件中列出的工作区",
+          label: "看板文件路径",
+          hint: "Desk 的 board.json 的绝对路径。留空则关闭看板",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "请输入绝对路径",
+          save: "保存",
+          clear: "清除",
+        },
       },
       fonts: {
         title: "字体",

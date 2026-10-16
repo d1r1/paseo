@@ -2265,6 +2265,17 @@ export const ar: TranslationResources = {
         },
         moveUp: "نقل لأعلى",
         moveDown: "نقل لأسفل",
+        boardFile: {
+          title: "ملف اللوحة",
+          description:
+            "اعرض مساحات العمل المدرجة في ملف لوحة Desk بترتيب اللوحة، أعلى بقية الشريط الجانبي",
+          label: "مسار ملف اللوحة",
+          hint: "المسار المطلق لملف board.json الخاص بـ Desk. اتركه فارغًا لإيقاف اللوحة",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "أدخل مسارًا مطلقًا",
+          save: "حفظ",
+          clear: "مسح",
+        },
       },
       fonts: {
         title: "الخطوط",

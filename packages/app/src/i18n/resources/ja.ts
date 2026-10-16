@@ -2284,6 +2284,17 @@ export const ja: TranslationResources = {
         },
         moveUp: "上に移動",
         moveDown: "下に移動",
+        boardFile: {
+          title: "ボードファイル",
+          description:
+            "Desk のボードファイルに載っているワークスペースを、ボードの順序でサイドバーの上部に表示します",
+          label: "ボードファイルのパス",
+          hint: "Desk の board.json の絶対パス。空にするとボードをオフにします",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "絶対パスを入力してください",
+          save: "保存",
+          clear: "クリア",
+        },
       },
       fonts: {
         title: "フォント",

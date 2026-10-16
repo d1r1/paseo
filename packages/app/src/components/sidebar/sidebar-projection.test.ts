@@ -5,6 +5,8 @@ import type {
   SidebarWorkspaceEntry,
   SidebarWorkspacePlacement,
 } from "@/hooks/use-sidebar-workspaces-list";
+import type { Board } from "@/desktop/board/board-file";
+import { splitSidebarBoard } from "./sidebar-board";
 import { buildSidebarProjection } from "./sidebar-projection";
 
 function makeWorkspace(
@@ -175,4 +177,105 @@ describe("buildSidebarProjection", () => {
       { serverId: "srv", workspaceId: "unpinned" },
     ]);
   });
+
+  it("numbers the board block before everything else for the shortcuts", () => {
+    const boardRow = makeWorkspace("board-row", "running");
+    const projection = buildSidebarProjection({
+      ...projectionInput({ groupMode: "status" }),
+      boardWorkspaces: [boardRow.entry],
+    });
+
+    expect(projection.shortcutModel.shortcutTargets).toEqual([
+      { serverId: "srv", workspaceId: "board-row" },
+      { serverId: "srv", workspaceId: "pinned" },
+      { serverId: "srv", workspaceId: "unpinned" },
+    ]);
+  });
+
+  it("numbers the board block even while the pinned section is collapsed", () => {
+    const boardRow = makeWorkspace("board-row", "running");
+    const projection = buildSidebarProjection({
+      ...projectionInput({ pinnedCollapsed: true }),
+      boardWorkspaces: [boardRow.entry],
+    });
+
+    expect(projection.shortcutModel.shortcutTargets.map((target) => target.workspaceId)).toEqual([
+      "board-row",
+      "unpinned",
+    ]);
+  });
+
+  it("is unchanged without a board block", () => {
+    const withoutField = buildSidebarProjection(projectionInput());
+    const withEmpty = buildSidebarProjection({ ...projectionInput(), boardWorkspaces: [] });
+
+    expect(withEmpty.shortcutModel.shortcutTargets).toEqual(
+      withoutField.shortcutModel.shortcutTargets,
+    );
+  });
+});
+
+const TAKING_BOARD: Board = {
+  generatedAt: "2026-10-17T09:00:00Z",
+  issues: ["DSK-1", "DSK-2"].map((id, sortOrder) => ({
+    id,
+    title: id,
+    team: "DSK",
+    status: "Todo",
+    parent: null,
+    sortOrder,
+    run: null,
+  })),
+};
+
+/** One project the board empties, one it leaves a workspace in. */
+function boardedProjection(groupMode: "project" | "status") {
+  const emptied = makeWorkspace("DSK-1 emptied", "needs_input", [], "emptied");
+  const partlyA = makeWorkspace("DSK-2 partly", "needs_input", [], "partly");
+  const partlyB = makeWorkspace("scratch", "running", [], "partly");
+  const entries = [emptied.entry, partlyA.entry, partlyB.entry];
+  const projects = [
+    makeProject([emptied.placement], "emptied"),
+    makeProject([partlyA.placement, partlyB.placement], "partly"),
+  ];
+  const split = splitSidebarBoard({
+    board: TAKING_BOARD,
+    projects,
+    workspaceEntriesByKey: new Map(entries.map((entry) => [entry.workspaceKey, entry])),
+  });
+  return buildSidebarProjection({
+    ...projectionInput({ groupMode }),
+    projects: split.projects,
+    iconProjects: projects,
+    boardWorkspaces: split.boardWorkspaces,
+    workspaceEntriesByKey: split.workspaceEntriesByKey,
+    pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+  });
+}
+
+describe("buildSidebarProjection with the board taking workspaces", () => {
+  it("lists no project group for a project the board emptied, and keeps a partly emptied one", () => {
+    const { unpinnedProjects } = boardedProjection("project").pinnedGroups;
+
+    expect(unpinnedProjects.map((project) => project.viewKey)).toEqual(["partly"]);
+    expect(unpinnedProjects[0]?.workspaces.map((entry) => entry.workspaceId)).toEqual(["scratch"]);
+  });
+
+  it("lists no status group the board emptied, and keeps a partly emptied one", () => {
+    const { workspaceGroups } = boardedProjection("status");
+
+    expect(workspaceGroups.map((group) => group.key)).toEqual(["running"]);
+    expect(workspaceGroups[0]?.rows.map((entry) => entry.workspaceId)).toEqual(["scratch"]);
+  });
+
+  for (const groupMode of ["project", "status"] as const) {
+    it(`keeps the icon target of every project a board row sits in, ${groupMode} grouping`, () => {
+      const { projectIconTargets } = boardedProjection(groupMode);
+
+      expect(projectIconTargets.map((target) => target.projectViewKey)).toEqual([
+        "emptied",
+        "partly",
+      ]);
+    });
+  }
 });

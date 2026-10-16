@@ -2389,6 +2389,17 @@ export const en = {
         },
         moveUp: "Move up",
         moveDown: "Move down",
+        boardFile: {
+          title: "Board file",
+          description:
+            "Show the workspaces that Desk's board file lists in the board's order, above the rest of the sidebar",
+          label: "Board file path",
+          hint: "Absolute path to Desk's board.json. Leave empty to turn the board off",
+          placeholder: "/Users/you/dev/ws/desk/issues/board.json",
+          invalid: "Enter an absolute path",
+          save: "Save",
+          clear: "Clear",
+        },
       },
       fonts: {
         title: "Fonts",
