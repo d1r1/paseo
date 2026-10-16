@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## This fork
+
+This checkout is `d1r1/paseo`, Desk's fork of `getpaseo/paseo`. The `upstream` remote is `getpaseo/paseo`, pinned at `v0.11.4`.
+
+- Base work on `desk` and land it by PR into `desk`. `main` mirrors upstream and is never a base.
+- The repository is notarized. Commit with `notary commit -m "…" --issue <id>` and push with `notary push --issue <id>`. Never use `git commit` or `git push`.
+- Commit messages carry no tracker trailer.
+- To run the fork beside the released Paseo.app without touching `~/.paseo`, see [Running the fork beside the released app](docs/development.md#running-the-fork-beside-the-released-app).
+
+The rest of this file is the upstream text.
+
 Paseo is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
 
 **Supported agents:** Claude Code, Codex, GitHub Copilot, OpenCode, Pi, Antigravity, and Muse Code.
