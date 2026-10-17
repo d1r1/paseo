@@ -1,4 +1,5 @@
-const versionPattern = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/;
+// `-desk.N` marks a build of the d1r1/paseo fork. It is a stable release for native purposes.
+const versionPattern = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+)|-desk\.\d+)?$/;
 const stableIosBuildSlot = 999;
 const FDROID_ABI_VERSION_CODE_SUFFIXES = {
   "armeabi-v7a": 1,

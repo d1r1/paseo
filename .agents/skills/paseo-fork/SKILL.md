@@ -60,6 +60,10 @@ The released Paseo.app and its daemon on `127.0.0.1:6767` stay untouched: never 
 5. Metro hot-reloads edits. Capture before and after screenshots of the dev window; [docs/browser-capture-harness.md](../../../docs/browser-capture-harness.md) covers Electron captures.
 6. Stop only what you started: signal your runner (`Ctrl+C` in its terminal), then confirm `env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI npm run cli -- daemon status` no longer finds a daemon on `6768`. Run every `npm run cli` command with those variables removed too: with `PASEO_HOME` set, the wrapper targets the released daemon. Confirm the process listening on `6767` has the same PID as before you started.
 
+## Install the fork app
+
+To replace `/Applications/Paseo.app` with a build of this checkout, follow [Installing the fork app over the released one](../../../docs/development.md#installing-the-fork-app-over-the-released-one). An agent builds the app with `npm run build:desktop:fork` and inspects it; it never copies it into `/Applications`, never opens it, and never runs the backup, switch or rollback commands. Those are the user's, at a moment with no agent running.
+
 ## Check the change
 
 Run, from the worktree root:

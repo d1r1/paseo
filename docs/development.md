@@ -98,6 +98,126 @@ In Paseo-managed worktree services, use the injected service environment rather 
 
 **Do not resume or prompt a seeded agent from the dev app.** A seeded agent record keeps its `persistence` handle (`docs/data-model.md`), which points at the same provider session the released daemon drives. Resuming it in the dev app starts a second daemon writing to that one session. Create new agents in the dev app instead, and treat the seeded list as read-only.
 
+### Installing the fork app over the released one
+
+The fork builds its own `Paseo.app` and takes the place of `/Applications/Paseo.app`. It keeps the app id `sh.paseo.desktop`, so it reads the released app's `~/.paseo`, its Electron user data (`desktop-settings.json`, including `boardFilePath`) and the `~/.local/bin/paseo` symlink, which points into `/Applications/Paseo.app`. Its built-in daemon is the fork's. Nothing here is automated: an agent builds the app, and you do the rest.
+
+What makes it the fork build:
+
+- **Version.** The fork carries `0.11.4-desk.1`, the upstream version plus `-desk.N`, in the root `package.json` and every workspace `package.json` (`node scripts/sync-workspace-versions.mjs` copies the root value to the workspaces). The bundled CLI, the daemon and the app read their own package's version, so a single root bump makes `paseo --version`, `Info.plist` and the About page agree. `packages/app/native-release-version.js` accepts the `-desk.N` suffix as a stable release; Expo refuses any other suffix. When you merge a new upstream release, set the root version to `<upstream>-desk.1` again and run the sync script.
+- **Signing.** `packages/desktop/electron-builder.fork.yml` extends `electron-builder.yml` and signs ad-hoc (`identity: "-"`) with the Hardened Runtime off, because library validation rejects ad-hoc-signed frameworks. It does not notarize, so it needs no Apple account or keychain. The app opens on the Mac that built and installed it. A copy that came through a download carries a quarantine flag and is blocked: run `xattr -dr com.apple.quarantine <app>` on it.
+- **No auto-update.** The overlay sets `publish: null`, so the bundle has no `app-update.yml`. The packaged app never finds or downloads an upstream release; with no feed, its update check can only fail. You take a new upstream release by merging upstream into `desk` and building again.
+
+#### Build
+
+From the worktree root, in a terminal you own. Remove the inherited `PASEO_*` variables as in [Running the fork beside the released app](#running-the-fork-beside-the-released-app); the build does not read them, but this keeps the habit:
+
+```bash
+env -u PASEO_HOME -u PASEO_AGENT_ID -u PASEO_AGENT_CWD -u PASEO_CLI npm run build:desktop:fork
+```
+
+The output is `packages/desktop/release/mac-arm64/Paseo.app` (Apple Silicon only). The script is `build:desktop` with `--config electron-builder.fork.yml --mac dir --arm64`; `--mac dir` replaces the base file's dmg and zip targets, because electron-builder concatenates `target` lists across `extends`. Check the result before you install it, without opening the app:
+
+```bash
+APP=packages/desktop/release/mac-arm64/Paseo.app
+codesign -dv --verbose=4 "$APP" 2>&1 | grep -E 'Identifier|Signature'   # Identifier=sh.paseo.desktop, Signature=adhoc
+codesign --verify --deep --strict "$APP" && echo signature ok
+defaults read "$PWD/$APP/Contents/Info" CFBundleShortVersionString         # 0.11.4-desk.1
+"$APP/Contents/Resources/bin/paseo" --version                              # 0.11.4-desk.1
+ls "$APP/Contents/Resources/app-update.yml"                                # must fail: no such file
+```
+
+#### Before the switch
+
+Do this from a terminal outside Paseo (Terminal.app): quitting Paseo ends the terminals and agents that run inside it. The switch needs a moment when no agent is running; the agents you want to keep resume afterwards from their saved sessions.
+
+1. Save what the released app reports, while it still runs:
+
+   ```bash
+   mkdir -p ~/paseo-switch
+   paseo --version                > ~/paseo-switch/version-before.txt
+   paseo ls -a -g                 > ~/paseo-switch/agents-before.txt
+   paseo plugin ls                > ~/paseo-switch/plugins-before.txt
+   paseo provider ls              > ~/paseo-switch/providers-before.txt
+   readlink ~/.local/bin/paseo    > ~/paseo-switch/symlink-before.txt
+   ```
+
+   Read `agents-before.txt` and stop agents that are still working; wait for the ones you cannot interrupt.
+
+2. Quit the released app (`Paseo` > Quit, or `osascript -e 'quit app "Paseo"'`), then make sure its daemon is gone. Quit stops the daemon unless the desktop setting `daemon.keepRunningAfterQuit` is on:
+
+   ```bash
+   paseo daemon status      # if it still reports a running daemon:
+   paseo daemon stop
+   ```
+
+3. Back up `~/.paseo` with nothing running, and check the copy:
+
+   ```bash
+   BACKUP=~/.paseo-backup-$(date +%Y%m%d-%H%M)
+   cp -Rp ~/.paseo "$BACKUP"
+   diff -rq ~/.paseo "$BACKUP" && echo backup identical
+   ```
+
+   The backup holds agents, projects, plugins and `config.json`. Keep it until the fork has run well for a while.
+
+#### Switch
+
+1. Check what you are about to move, and move it aside rather than delete it. The saved app is the rollback:
+
+   ```bash
+   defaults read /Applications/Paseo.app/Contents/Info CFBundleShortVersionString   # 0.11.4
+   mkdir -p ~/Applications
+   test ! -e ~/Applications/Paseo-0.11.4.app.bak && mv /Applications/Paseo.app ~/Applications/Paseo-0.11.4.app.bak
+   ```
+
+   If the `test` fails, `~/Applications/Paseo-0.11.4.app.bak` already exists; look at it before you pick another name.
+
+2. Copy the fork app in. `ditto` keeps the signature and the bundle's symlinks:
+
+   ```bash
+   ditto packages/desktop/release/mac-arm64/Paseo.app /Applications/Paseo.app
+   codesign --verify --deep --strict /Applications/Paseo.app && echo signature ok
+   ```
+
+3. Open it: `open /Applications/Paseo.app`. The built-in daemon starts on `127.0.0.1:6767` with `~/.paseo`. macOS asks again for the permissions the released app had (files, network, accessibility, notifications), because the signing identity changed; grant them as you did before.
+
+#### Checks after the switch
+
+These are yours to run; the build does not prove them.
+
+```bash
+readlink ~/.local/bin/paseo      # /Applications/Paseo.app/Contents/Resources/bin/paseo, same as symlink-before.txt
+paseo --version                  # 0.11.4-desk.1
+paseo daemon status              # running; home is ~/.paseo
+paseo ls -a -g > ~/paseo-switch/agents-after.txt
+diff ~/paseo-switch/agents-before.txt ~/paseo-switch/agents-after.txt
+paseo plugin ls   | diff ~/paseo-switch/plugins-before.txt -
+paseo provider ls | diff ~/paseo-switch/providers-before.txt -
+```
+
+The agent list must hold the same agents; status and time columns may differ, the ids may not. Open one agent from the list and send it a prompt: it continues its own session. Settings > About shows `0.11.4-desk.1`. If `~/.local/bin/paseo` is missing or points elsewhere, press Install under Settings > Integrations > Command line.
+
+#### Roll back
+
+One step puts the released 0.11.4 app back. Quit the fork app (and `paseo daemon stop` if a daemon remains), then:
+
+```bash
+mv /Applications/Paseo.app ~/Applications/Paseo-fork.app && mv ~/Applications/Paseo-0.11.4.app.bak /Applications/Paseo.app
+open /Applications/Paseo.app
+```
+
+`~/.local/bin/paseo` points at the same path and needs nothing. `~/.paseo` stays as the fork's daemon left it. Both versions share the upstream `0.11.4` state format, so this normally works as it is.
+
+Restoring the backup is a separate step, for when you want the state from before the switch as well. It discards everything the fork wrote since. Quit the app and its daemon first:
+
+```bash
+mv ~/.paseo ~/.paseo-after-fork
+cp -Rp "$BACKUP" ~/.paseo      # $BACKUP is the directory from step 3; list ~/.paseo-backup-* if the shell lost it
+```
+
+Delete `~/Applications/Paseo-fork.app` and `~/.paseo-after-fork` when you no longer need them. If a rollback follows a failed first launch, `~/Applications/Paseo-fork.app` is the fork build; rebuild from the worktree instead of repairing it.
+
 ### Desk's board in the sidebar
 
 In the desktop app, the sidebar can list workspaces in the order of Desk's board file, `issues/board.json`. Desk's `docs/triage.md` owns the file's format (schema 1) and how it is refreshed; this section covers only what the fork does with it.
