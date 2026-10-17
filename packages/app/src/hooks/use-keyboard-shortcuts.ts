@@ -5,6 +5,7 @@ import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { setCommandCenterFocusRestoreElement } from "@/utils/command-center-focus-restore";
 import { getResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
 import {
   type ChordState,
@@ -174,6 +175,9 @@ export function useKeyboardShortcuts({
         };
         navigateToWorkspace({ serverId: action.serverId, workspaceId: action.workspaceId });
         return true;
+      case "board-view-select":
+        useSidebarViewStore.getState().setBoardView(action.viewKey);
+        return true;
       case "navigate-last-workspace":
         if (navigateToLastWorkspace()) {
           return true;
@@ -227,6 +231,7 @@ export function useKeyboardShortcuts({
         pathname,
         isMobile,
         sidebarShortcutTargets: store.sidebarShortcutWorkspaceTargets,
+        boardViewKeys: store.boardViewKeys,
         navigationActiveWorkspace:
           keyboardWorkspaceSelectionRef.current ?? activeWorkspaceSelection,
         commandCenterOpen: store.commandCenterOpen,

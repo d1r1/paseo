@@ -203,6 +203,27 @@ describe("keyboard-shortcuts", () => {
       payload: { index: 2 },
     },
     {
+      name: "matches board view select on mac desktop via Ctrl+Shift+digit",
+      event: { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true },
+      action: "board.view.select",
+      payload: { index: 1 },
+    },
+    {
+      name: "matches board view select on non-mac desktop via Ctrl+Shift+digit",
+      event: { key: "@", code: "Digit2", ctrlKey: true, shiftKey: true },
+      context: { isMac: false, isDesktop: true },
+      action: "board.view.select",
+      payload: { index: 2 },
+    },
+    {
+      name: "matches board view select from a text field, where Ctrl+Shift+digit types nothing",
+      event: { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true, focusScope: "message-input" },
+      action: "board.view.select",
+      payload: { index: 1 },
+    },
+    {
       name: "matches workspace relative navigation on web via Alt+[",
       event: { key: "[", code: "BracketLeft", altKey: true },
       context: { isDesktop: false },
@@ -465,6 +486,26 @@ describe("keyboard-shortcuts", () => {
       name: "keeps mac Option+digit available for international text input",
       event: { key: "@", code: "Digit2", altKey: true },
       context: { isMac: true, isDesktop: true, focusScope: "message-input" },
+    },
+    {
+      name: "does not select a board view on web",
+      event: { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true },
+      context: { isMac: false, isDesktop: false },
+    },
+    {
+      name: "does not select a board view while the terminal is focused",
+      event: { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true, focusScope: "terminal" },
+    },
+    {
+      name: "does not select a board view while the command center is open",
+      event: { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true, commandCenterOpen: true },
+    },
+    {
+      name: "does not select a board view with Cmd+Shift+digit on mac",
+      event: { key: "!", code: "Digit1", metaKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true },
     },
     {
       name: "does not match Ctrl+K for command center on non-mac in terminal",
@@ -867,6 +908,27 @@ describe("keyboard-shortcut help sections", () => {
     expect(openProject?.label).toBe("Open project");
     expect(cycleAgentMode?.labelKey).toBe("settings.shortcuts.help.cycleAgentMode");
     expect(showShortcuts?.noteKey).toBe("settings.shortcuts.helpNotes.showKeyboardShortcuts");
+  });
+
+  it("lists the board view switch under Projects & Workspaces on desktop only, as Ctrl Shift 1-9", () => {
+    for (const isMac of [true, false]) {
+      const sections = buildKeyboardShortcutHelpSections({ isMac, isDesktop: true });
+      const workspaces = sections.find((section) => section.id === "workspaces");
+      const row = findRow(sections, "board-view-select");
+
+      expect(row?.labelKey).toBe("settings.shortcuts.help.switchBoardView");
+      expect(row?.chord).toEqual([["ctrl", "shift", "1-9"]]);
+      expect(workspaces?.rows.map((entry) => entry.id)).toContain("board-view-select");
+      expect(
+        workspaces?.rows.findIndex((entry) => entry.id === "board-view-select"),
+      ).toBeGreaterThan(workspaces?.rows.findIndex((entry) => entry.id === "workspace-next") ?? -1);
+    }
+    expect(
+      findRow(
+        buildKeyboardShortcutHelpSections({ isMac: true, isDesktop: false }),
+        "board-view-select",
+      ),
+    ).toBeNull();
   });
 
   it("gives every help row an explicit place in its section's order", () => {

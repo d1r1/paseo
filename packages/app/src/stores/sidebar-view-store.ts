@@ -4,6 +4,7 @@ import { persist, type StateStorage } from "zustand/middleware";
 import { z } from "zod";
 import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
+import { ALL_BOARD_VIEW_KEY } from "@/stores/sidebar-collapsed-sections-store/state";
 
 export type SidebarGroupMode = "project" | "status";
 
@@ -61,7 +62,15 @@ interface SidebarViewStoreState {
    */
   projectFilters: string[];
   labelFilter: SidebarLabelFilter;
+  /**
+   * The board view the sidebar shows: `all`, or a team key as the board file spells it (`DSK`).
+   * Stored as chosen and never reconciled, like `projectFilters`: a team the current file does
+   * not carry resolves to `all` at read time (`resolveBoardView`) and applies again when a file
+   * carries it. Only the desktop app has a board, so elsewhere this is never read.
+   */
+  boardView: string;
   setGroupMode: (mode: SidebarGroupMode) => void;
+  setBoardView: (viewKey: string) => void;
   toggleHostFilter: (serverId: string) => void;
   clearHostFilters: () => void;
   toggleProjectFilter: (viewKey: string) => void;
@@ -77,6 +86,7 @@ interface SidebarViewPersistedState {
   hostFilters: string[];
   projectFilters: string[];
   labelFilter: SidebarLabelFilter;
+  boardView: string;
 }
 
 const PersistedSidebarGroupModeSchema = z.enum(["project", "status", "label"]);
@@ -90,6 +100,7 @@ const SidebarViewPersistedStateSchema = z.strictObject({
   projectFilters: z.array(z.string()).optional(),
   groupModeByServerId: z.record(z.string(), PersistedSidebarGroupModeSchema).optional(),
   labelFilter: SidebarLabelFilterSchema.optional(),
+  boardView: z.string().optional(),
 });
 
 type SidebarViewStorageState = z.infer<typeof SidebarViewPersistedStateSchema>;
@@ -126,6 +137,7 @@ export function migrateSidebarViewState(persistedState: unknown): SidebarViewPer
       hostFilters: [],
       projectFilters: [],
       labelFilter: emptyLabelFilter(),
+      boardView: ALL_BOARD_VIEW_KEY,
     };
   }
   const state = result.data;
@@ -137,6 +149,7 @@ export function migrateSidebarViewState(persistedState: unknown): SidebarViewPer
       hostFilters: [],
       projectFilters: [],
       labelFilter: emptyLabelFilter(),
+      boardView: ALL_BOARD_VIEW_KEY,
     };
   }
 
@@ -147,6 +160,7 @@ export function migrateSidebarViewState(persistedState: unknown): SidebarViewPer
     labelFilter: state.labelFilter
       ? normalizeSidebarLabelFilter(state.labelFilter)
       : emptyLabelFilter(),
+    boardView: state.boardView ?? ALL_BOARD_VIEW_KEY,
   };
 }
 
@@ -182,7 +196,9 @@ export const useSidebarViewStore = create<SidebarViewStoreState>()(
       hostFilters: [],
       projectFilters: [],
       labelFilter: emptyLabelFilter(),
+      boardView: ALL_BOARD_VIEW_KEY,
       setGroupMode: (mode) => set({ groupMode: mode }),
+      setBoardView: (viewKey) => set({ boardView: viewKey }),
       toggleHostFilter: (serverId) =>
         set((state) => ({ hostFilters: toggleFilterEntry(state.hostFilters, serverId) })),
       clearHostFilters: () => set({ hostFilters: [] }),
@@ -232,6 +248,7 @@ export const useSidebarViewStore = create<SidebarViewStoreState>()(
         hostFilters: state.hostFilters,
         projectFilters: state.projectFilters,
         labelFilter: state.labelFilter,
+        boardView: state.boardView,
       }),
       migrate: migrateSidebarViewState,
     },

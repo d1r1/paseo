@@ -4,17 +4,61 @@ import type {
   SidebarWorkspaceEntry,
 } from "@/hooks/sidebar-workspaces-view-model";
 import type { Board, BoardIssue } from "@/desktop/board/board-file";
+import { ALL_BOARD_VIEW_KEY } from "@/stores/sidebar-collapsed-sections-store/state";
 
-const ISSUE_TITLE_TOKEN = /^(DSK-\d+)(?=\s|$)/;
+export { ALL_BOARD_VIEW_KEY };
+
+const ISSUE_TITLE_TOKEN = /^([A-Z][A-Z0-9]*-\d+)(?=\s|$)/;
 
 export interface SidebarBoardRow<T> {
   workspace: T;
   info: SidebarBoardRowInfo;
 }
 
-/** The Issue a workspace title names: a leading `DSK-N` followed by whitespace or the end. */
+/**
+ * The Issue a workspace title names: a leading `TEAM-N` (an uppercase team key, a dash, digits)
+ * followed by whitespace or the end. Whether the Issue is on the board is the caller's question.
+ */
 export function parseBoardIssueId(title: string): string | null {
   return ISSUE_TITLE_TOKEN.exec(title)?.[1] ?? null;
+}
+
+export interface BoardView {
+  /** `ALL_BOARD_VIEW_KEY`, or a team exactly as the board file spells it (`DSK`). */
+  key: string;
+  /** The segment label: the team lowercased (`dsk`), or `all` for the caller to translate. */
+  label: string;
+}
+
+/**
+ * The views the sidebar filter offers: one per distinct `team` in the order the board file first
+ * names them, then `all`. No views for no board, an unusable board or a board without an Issue,
+ * so the filter is not shown when there is nothing to filter.
+ */
+export function resolveBoardViews(board: Board | null): BoardView[] {
+  if (!board || board.issues.length === 0 || !indexIssues(board)) return [];
+  const teams: string[] = [];
+  for (const issue of board.issues) {
+    if (!teams.includes(issue.team)) teams.push(issue.team);
+  }
+  return [
+    ...teams.map((team) => ({ key: team, label: team.toLowerCase() })),
+    { key: ALL_BOARD_VIEW_KEY, label: ALL_BOARD_VIEW_KEY },
+  ];
+}
+
+/**
+ * The view to show for a stored key: the key itself when `views` carries it, `all` otherwise. A
+ * stored team the current file does not carry is resolved away here, never deleted, so it applies
+ * again when the file carries it.
+ */
+export function resolveBoardView(views: readonly BoardView[], storedKey: string): string {
+  return views.some((view) => view.key === storedKey) ? storedKey : ALL_BOARD_VIEW_KEY;
+}
+
+/** The team a view filters by: null for `all`, else the view key as the file spells the team. */
+export function boardViewTeam(viewKey: string): string | null {
+  return viewKey === ALL_BOARD_VIEW_KEY ? null : viewKey;
 }
 
 /** The Issue's status, and its run step when it has one: `In Progress · challenge`. */
@@ -55,20 +99,28 @@ function bySortOrder(left: BoardIssue, right: BoardIssue): number {
  * Each row names its matched ancestors, and the first row of an Issue that has a matched
  * descendant row is marked `hasChildren`; `applyBoardCollapse` reads both. Rows come out expanded.
  *
+ * `team` keeps the rows of that team's Issues only: an Issue of another team adds no row and no
+ * level, exactly as an Issue without a workspace, so `hasChildren` and depth are computed over the
+ * rows that stay. Null, the default, keeps every team.
+ *
  * An invalid board (a repeated Issue id or a parent cycle) matches nothing.
  */
 export function projectSidebarBoard<T extends { name: string }>(input: {
   board: Board | null;
   workspaces: readonly T[];
+  team?: string | null;
 }): SidebarBoardRow<T>[] {
   if (!input.board) return [];
   const issuesById = indexIssues(input.board);
   if (!issuesById) return [];
+  const team = input.team ?? null;
 
   const workspacesByIssueId = new Map<string, T[]>();
   for (const workspace of input.workspaces) {
     const issueId = parseBoardIssueId(workspace.name);
-    if (issueId === null || !issuesById.has(issueId)) continue;
+    if (issueId === null) continue;
+    const issue = issuesById.get(issueId);
+    if (!issue || (team !== null && issue.team !== team)) continue;
     const matched = workspacesByIssueId.get(issueId);
     if (matched) matched.push(workspace);
     else workspacesByIssueId.set(issueId, [workspace]);
@@ -175,13 +227,16 @@ export interface SidebarBoardSplit {
  * and has no group without a row. With no usable board or no match it returns the inputs themselves, which is the sidebar as it was.
  *
  * `collapsedIssueIds` hides the rows under those Issues (`applyBoardCollapse`); a hidden row is
- * still the board's, so it does not go back to the lists below.
+ * still the board's, so it does not go back to the lists below. `team` keeps one team's rows
+ * (`projectSidebarBoard`); the other teams' workspaces are then not the board's and stay in the
+ * lists below, which a team view does not show.
  */
 export function splitSidebarBoard(input: {
   board: Board | null;
   projects: SidebarProjectEntry[];
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   collapsedIssueIds?: ReadonlySet<string>;
+  team?: string | null;
 }): SidebarBoardSplit {
   const rows = projectSidebarBoard({
     board: input.board,
@@ -191,6 +246,7 @@ export function splitSidebarBoard(input: {
         return entry ? [entry] : [];
       }),
     ),
+    team: input.team,
   });
   if (rows.length === 0) {
     return {

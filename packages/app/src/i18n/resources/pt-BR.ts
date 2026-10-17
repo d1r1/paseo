@@ -1212,6 +1212,11 @@ export const ptBR: TranslationResources = {
         all: "Todos os projetos",
       },
     },
+    board: {
+      views: {
+        all: "tudo",
+      },
+    },
     filterEmpty: {
       title: "Nenhum espaço de trabalho corresponde",
       description: "Altere ou limpe os filtros da barra lateral para ver espaços de trabalho.",
@@ -2386,6 +2391,7 @@ export const ptBR: TranslationResources = {
         jumpToTab: "Ir para aba",
         previousWorkspace: "Workspace anterior",
         nextWorkspace: "Próximo workspace",
+        switchBoardView: "Alternar visualização do board",
         previousTab: "Aba anterior",
         nextTab: "Próxima aba",
         splitPaneRight: "Dividir painel à direita",

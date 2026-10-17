@@ -19,16 +19,19 @@ interface SidebarCollapsedSectionsState extends CollapsedProjectsState {
   toggleProjectCollapsed: (projectKey: string) => void;
   setProjectCollapsed: (projectKey: string, collapsed: boolean) => void;
   toggleWorkspaceGroupCollapsed: (workspaceGroupKey: string) => void;
-  toggleBoardIssueCollapsed: (issueId: string) => void;
+  /** Collapses or expands a board Issue's sub-issue rows in one view; see `CollapsedProjectsState`. */
+  toggleBoardIssueCollapsed: (viewKey: string, issueId: string) => void;
   togglePinnedCollapsed: () => void;
 }
+
+export { ALL_BOARD_VIEW_KEY, collapsedBoardIssueIdsForView } from "./state";
 
 export const useSidebarCollapsedSectionsStore = create<SidebarCollapsedSectionsState>()(
   persist<SidebarCollapsedSectionsState, [], [], PersistedCollapsedProjects>(
     (set) => ({
       collapsedProjectKeys: new Set(),
       collapsedWorkspaceGroupKeys: new Set(),
-      collapsedBoardIssueIds: new Set(),
+      collapsedBoardIssueIdsByView: new Map(),
       collapsedPinned: false,
       toggleProjectCollapsed: (projectKey) =>
         set((state) => toggleProjectCollapsed(state, projectKey)),
@@ -36,8 +39,8 @@ export const useSidebarCollapsedSectionsStore = create<SidebarCollapsedSectionsS
         set((state) => setProjectCollapsed(state, projectKey, collapsed)),
       toggleWorkspaceGroupCollapsed: (workspaceGroupKey) =>
         set((state) => toggleWorkspaceGroupCollapsed(state, workspaceGroupKey)),
-      toggleBoardIssueCollapsed: (issueId) =>
-        set((state) => toggleBoardIssueCollapsed(state, issueId)),
+      toggleBoardIssueCollapsed: (viewKey, issueId) =>
+        set((state) => toggleBoardIssueCollapsed(state, viewKey, issueId)),
       togglePinnedCollapsed: () => set((state) => togglePinnedCollapsed(state)),
     }),
     {

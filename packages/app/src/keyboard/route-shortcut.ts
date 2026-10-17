@@ -10,6 +10,8 @@ export interface ShortcutRoutingContext {
   pathname: string;
   isMobile: boolean;
   sidebarShortcutTargets: ReadonlyArray<SidebarShortcutWorkspaceTarget>;
+  /** The board views the sidebar filter offers, in its order; empty without a board. */
+  boardViewKeys: readonly string[];
   navigationActiveWorkspace: SidebarShortcutWorkspaceTarget | null;
   commandCenterOpen: boolean;
   shortcutsDialogOpen: boolean;
@@ -26,6 +28,7 @@ export type ShortcutAction =
   | { kind: "none" }
   | { kind: "dispatch"; action: KeyboardActionDefinition }
   | { kind: "navigate-workspace"; serverId: string; workspaceId: string }
+  | { kind: "board-view-select"; viewKey: string }
   | { kind: "navigate-last-workspace" }
   | { kind: "router-replace"; route: string }
   | { kind: "router-back" }
@@ -154,6 +157,16 @@ function routeWorkspaceNavigateRelative(
   };
 }
 
+function routeBoardViewSelect(
+  payload: KeyboardShortcutPayload,
+  ctx: ShortcutRoutingContext,
+): ShortcutAction {
+  if (!hasPayloadKey(payload, "index")) return NONE;
+  const viewKey = ctx.boardViewKeys[payload.index - 1];
+  if (viewKey === undefined) return NONE;
+  return { kind: "board-view-select", viewKey };
+}
+
 function routeMessageInputAction(payload: KeyboardShortcutPayload): ShortcutAction {
   if (!hasPayloadKey(payload, "kind")) return NONE;
   const action = MESSAGE_INPUT_DISPATCH[payload.kind];
@@ -201,6 +214,8 @@ export function routeKeyboardShortcut(
       return routeWorkspaceNavigateIndex(input.payload, ctx);
     case "workspace.navigate.relative":
       return routeWorkspaceNavigateRelative(input.payload, ctx);
+    case "board.view.select":
+      return routeBoardViewSelect(input.payload, ctx);
     case "message-input.action":
       return routeMessageInputAction(input.payload);
     case "agent.new":

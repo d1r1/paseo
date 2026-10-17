@@ -222,6 +222,12 @@ interface SidebarWorkspaceListProps {
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   /** Desk's board block, listed above everything else in either grouping. See `SidebarModel`. */
   boardWorkspaces: SidebarWorkspaceEntry[];
+  /**
+   * A team view: the list renders the board block and nothing else, no Pinned section, no
+   * Workspaces header, no project or status groups, no footer. Empty when the team has no
+   * matched workspace. See `SidebarModel.boardOnly`.
+   */
+  boardOnly?: boolean;
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectViewKey: string) => void;
   /** Collapses or expands the sub-issue rows under a board row's Issue. */
@@ -1908,6 +1914,7 @@ export function SidebarWorkspaceList({
   hasActiveProjectFilter,
   workspaceEntriesByKey,
   boardWorkspaces,
+  boardOnly = false,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
   onToggleBoardIssueCollapsed,
@@ -1989,6 +1996,7 @@ export function SidebarWorkspaceList({
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
         boardWorkspaces={boardWorkspaces}
+        boardOnly={boardOnly}
         onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
@@ -2008,6 +2016,7 @@ export function SidebarWorkspaceList({
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
         boardWorkspaces={boardWorkspaces}
+        boardOnly={boardOnly}
         onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         collapsedProjectKeys={collapsedProjectKeys}
@@ -2045,6 +2054,7 @@ function SidebarGroupedModeList({
   pinnedGroups,
   workspaceEntriesByKey,
   boardWorkspaces,
+  boardOnly,
   onToggleBoardIssueCollapsed,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey: _projectShortcutIndex,
@@ -2062,6 +2072,7 @@ function SidebarGroupedModeList({
   pinnedGroups: PinnedSidebarGroups;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   boardWorkspaces: SidebarWorkspaceEntry[];
+  boardOnly: boolean;
   onToggleBoardIssueCollapsed: (issueId: string) => void;
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -2089,6 +2100,7 @@ function SidebarGroupedModeList({
     <SidebarStatusWorkspaceList
       groups={workspaceGroups}
       boardWorkspaces={boardWorkspaces}
+      boardOnly={boardOnly}
       onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       pinnedWorkspaces={pinnedWorkspaces}
       projectIconByProjectViewKey={projectIconByProjectViewKey}
@@ -2112,6 +2124,7 @@ function ProjectModeList({
   pinnedGroups,
   workspaceEntriesByKey,
   boardWorkspaces,
+  boardOnly = false,
   projectIconByProjectViewKey,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
@@ -2484,13 +2497,18 @@ function ProjectModeList({
       />
     );
 
-  const content = (
+  const boardSection =
+    boardWorkspaces.length > 0 ? (
+      <View style={styles.boardSection} testID="sidebar-board-section">
+        {boardWorkspaces.map(renderBoardRow)}
+      </View>
+    ) : null;
+
+  const content = boardOnly ? (
+    boardSection
+  ) : (
     <>
-      {boardWorkspaces.length > 0 ? (
-        <View style={styles.boardSection} testID="sidebar-board-section">
-          {boardWorkspaces.map(renderBoardRow)}
-        </View>
-      ) : null}
+      {boardSection}
       {pinnedChats.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
           <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />

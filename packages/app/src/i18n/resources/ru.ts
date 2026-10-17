@@ -1203,6 +1203,11 @@ export const ru: TranslationResources = {
         all: "Все проекты",
       },
     },
+    board: {
+      views: {
+        all: "все",
+      },
+    },
     filterEmpty: {
       title: "Нет подходящих рабочих пространств",
       description:
@@ -2391,6 +2396,7 @@ export const ru: TranslationResources = {
         jumpToTab: "Перейти на вкладку",
         previousWorkspace: "Предыдущее рабочее пространство",
         nextWorkspace: "Следующее рабочее пространство",
+        switchBoardView: "Переключить вид доски",
         previousTab: "Предыдущая вкладка",
         nextTab: "Следующая вкладка",
         splitPaneRight: "Разделить панель справа",

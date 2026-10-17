@@ -1222,6 +1222,11 @@ export const es: TranslationResources = {
         all: "Todos los proyectos",
       },
     },
+    board: {
+      views: {
+        all: "todo",
+      },
+    },
     filterEmpty: {
       title: "Ningún espacio de trabajo coincide",
       description: "Cambia o borra los filtros de la barra lateral para ver espacios de trabajo.",
@@ -2405,6 +2410,7 @@ export const es: TranslationResources = {
         jumpToTab: "Saltar a la pestaña",
         previousWorkspace: "Espacio de trabajo anterior",
         nextWorkspace: "Siguiente espacio de trabajo",
+        switchBoardView: "Cambiar vista del tablero",
         previousTab: "Pestaña anterior",
         nextTab: "Pestaña siguiente",
         splitPaneRight: "Panel dividido a la derecha",

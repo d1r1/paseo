@@ -36,6 +36,7 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
   });
 
@@ -88,6 +89,7 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
   });
 
@@ -102,6 +104,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a"],
       projectFilters: [],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
   });
 
@@ -116,6 +119,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a", "host-b"],
       projectFilters: [],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
   });
 
@@ -226,6 +230,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a"],
       projectFilters: ["project-a", "project-b"],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
   });
 
@@ -235,7 +240,44 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      boardView: "all",
     });
+  });
+
+  it("sets the board view and keeps the other facets", () => {
+    useSidebarViewStore.setState({ hostFilters: ["host-a"], projectFilters: ["project-a"] });
+
+    useSidebarViewStore.getState().setBoardView("DSK");
+
+    expect(useSidebarViewStore.getState()).toMatchObject({
+      hostFilters: ["host-a"],
+      projectFilters: ["project-a"],
+      boardView: "DSK",
+    });
+  });
+
+  it("carries a persisted board view through the version migration", () => {
+    expect(
+      migrateSidebarViewState({
+        groupMode: "project",
+        hostFilters: ["host-a"],
+        boardView: "FLU",
+      }),
+    ).toEqual({
+      groupMode: "project",
+      hostFilters: ["host-a"],
+      projectFilters: [],
+      labelFilter: { labels: [] },
+      boardView: "FLU",
+    });
+  });
+
+  it("reads all for a persisted value without a board view", () => {
+    expect(migrateSidebarViewState({ groupMode: "status" }).boardView).toBe("all");
+  });
+
+  it("never keeps a board view from state the schema rejects", () => {
+    expect(migrateSidebarViewState({ boardView: 1 }).boardView).toBe("all");
   });
 
   it("falls back to the legacy storage key when the new key is empty", async () => {
