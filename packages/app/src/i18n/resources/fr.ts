@@ -1213,6 +1213,11 @@ export const fr: TranslationResources = {
         all: "Tous les projets",
       },
     },
+    board: {
+      views: {
+        all: "tout",
+      },
+    },
     filterEmpty: {
       title: "Aucun espace de travail ne correspond",
       description:
@@ -2403,6 +2408,7 @@ export const fr: TranslationResources = {
         jumpToTab: "Aller à l’onglet",
         previousWorkspace: "Espace de travail précédent",
         nextWorkspace: "Espace de travail suivant",
+        switchBoardView: "Changer la vue du tableau",
         previousTab: "Onglet précédent",
         nextTab: "Onglet suivant",
         splitPaneRight: "Diviser le panneau vers la droite",

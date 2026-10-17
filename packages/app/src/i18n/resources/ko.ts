@@ -1193,6 +1193,11 @@ export const ko: TranslationResources = {
         all: "모든 프로젝트",
       },
     },
+    board: {
+      views: {
+        all: "전체",
+      },
+    },
     filterEmpty: {
       title: "일치하는 워크스페이스가 없습니다",
       description: "워크스페이스를 보려면 사이드바 필터를 변경하거나 지우세요.",
@@ -2361,6 +2366,7 @@ export const ko: TranslationResources = {
         jumpToTab: "탭으로 이동",
         previousWorkspace: "이전 워크스페이스",
         nextWorkspace: "다음 워크스페이스",
+        switchBoardView: "보드 보기 전환",
         previousTab: "이전 탭",
         nextTab: "다음 탭",
         splitPaneRight: "창을 오른쪽으로 분할",

@@ -167,6 +167,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-jump-index",
     "workspace-prev",
     "workspace-next",
+    "board-view-select",
     "pin-workspace",
     "archive-workspace",
   ],
@@ -219,6 +220,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "workspace-tab-jump-index": "settings.shortcuts.help.jumpToTab",
   "workspace-prev": "settings.shortcuts.help.previousWorkspace",
   "workspace-next": "settings.shortcuts.help.nextWorkspace",
+  "board-view-select": "settings.shortcuts.help.switchBoardView",
   "workspace-tab-prev": "settings.shortcuts.help.previousTab",
   "workspace-tab-next": "settings.shortcuts.help.nextTab",
   "workspace-pane-split-right": "settings.shortcuts.help.splitPaneRight",
@@ -685,6 +687,25 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "workspace-next",
       section: "workspaces",
       label: "Next workspace",
+    },
+  },
+
+  // --- Board view select (desktop only: only the desktop app reads Desk's board file) ---
+  // Ctrl, not Mod, on every desktop platform: macOS reserves Cmd+Shift+3, 4 and 5 for
+  // screenshots and binds nothing to Ctrl+Shift+Digit by default. Not suppressed in a text
+  // field, where Ctrl+Shift+Digit types nothing; suppressed in the terminal and the command
+  // center as the non-mac Ctrl+Digit workspace jump is.
+  {
+    id: "board-view-select-ctrl-shift-digit-desktop",
+    action: "board.view.select",
+    combo: "Ctrl+Shift+Digit",
+    when: { desktop: true, commandCenter: false, terminal: false },
+    payload: { type: "index" },
+    help: {
+      id: "board-view-select",
+      section: "workspaces",
+      label: "Switch board view",
+      defaultDisplayKeys: ["ctrl", "shift", "1-9"],
     },
   },
 

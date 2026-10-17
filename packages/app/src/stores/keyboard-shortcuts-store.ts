@@ -15,6 +15,8 @@ interface KeyboardShortcutsState {
   showShortcutBadges: boolean;
   /** Sidebar-visible workspace targets (up to 9), in top-to-bottom visual order. */
   sidebarShortcutWorkspaceTargets: SidebarShortcutWorkspaceTarget[];
+  /** The board views the sidebar filter offers, in its order, for `board.view.select`. */
+  boardViewKeys: string[];
 
   setCommandCenterOpen: (open: boolean, scope?: CommandCenterScope) => void;
   setCommandCenterScope: (scope: CommandCenterScope) => void;
@@ -23,6 +25,7 @@ interface KeyboardShortcutsState {
   setAltDown: (down: boolean) => void;
   setCmdOrCtrlDown: (down: boolean) => void;
   setSidebarShortcutWorkspaceTargets: (targets: SidebarShortcutWorkspaceTarget[]) => void;
+  setBoardViewKeys: (viewKeys: string[]) => void;
   resetModifiers: () => void;
 }
 
@@ -58,6 +61,7 @@ export const useKeyboardShortcutsStore = create<KeyboardShortcutsState>((set, ge
   cmdOrCtrlDown: false,
   showShortcutBadges: false,
   sidebarShortcutWorkspaceTargets: [],
+  boardViewKeys: [],
 
   setCommandCenterOpen: (open, scope = null) =>
     set({ commandCenterOpen: open, commandCenterScope: open ? scope : null }),
@@ -74,6 +78,7 @@ export const useKeyboardShortcutsStore = create<KeyboardShortcutsState>((set, ge
   },
   setSidebarShortcutWorkspaceTargets: (targets) =>
     set({ sidebarShortcutWorkspaceTargets: targets }),
+  setBoardViewKeys: (viewKeys) => set({ boardViewKeys: viewKeys }),
   resetModifiers: () => {
     set({ altDown: false, cmdOrCtrlDown: false });
     updateBadgeTimer(set, get);

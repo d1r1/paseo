@@ -1,5 +1,12 @@
 import { useTranslation } from "react-i18next";
-import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from "react";
 import {
   useSidebarWorkspacesList,
   type SidebarProjectEntry,
@@ -8,7 +15,10 @@ import {
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useSidebarWorkspaceEntries } from "@/hooks/use-sidebar-workspace-entries";
 import { usePinnedSidebarKeys, type PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
-import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
+import {
+  collapsedBoardIssueIdsForView,
+  useSidebarCollapsedSectionsStore,
+} from "@/stores/sidebar-collapsed-sections-store";
 import {
   hasActiveSidebarLabelFilter,
   useSidebarViewStore,
@@ -17,7 +27,13 @@ import {
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
-import { splitSidebarBoard } from "./sidebar-board";
+import {
+  boardViewTeam,
+  resolveBoardView,
+  resolveBoardViews,
+  splitSidebarBoard,
+  type BoardView,
+} from "./sidebar-board";
 import { useSidebarBoard } from "./use-sidebar-board";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
@@ -35,6 +51,17 @@ interface SidebarModel extends SidebarWorkspacesListResult {
    * `workspaceGroups` and each project's rows leave them out so every workspace shows once.
    */
   boardWorkspaces: SidebarWorkspaceEntry[];
+  /** The views the board filter offers (`resolveBoardViews`); empty without a usable board. */
+  boardViews: BoardView[];
+  /** The view in effect: the stored one when `boardViews` carries it, else `all`. */
+  boardView: string;
+  setBoardView: (viewKey: string) => void;
+  /**
+   * A team view is on: the list shows the board block alone. `pinnedGroups`, `workspaceGroups`
+   * and `shortcutModel` are then built over no other workspace, so the shortcut numbers walk
+   * the block. `projects` and `workspaceEntriesByKey` still hold every eligible workspace.
+   */
+  boardOnly: boolean;
   /**
    * Every project the sidebar could show, before any filter narrows it.
    *
@@ -51,12 +78,18 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   pinnedGroups: PinnedSidebarGroups;
   collapsedProjectKeys: ReadonlySet<string>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
-  /** Collapses or expands the sub-issue rows under a board row's Issue; see `splitSidebarBoard`. */
+  /**
+   * Collapses or expands the sub-issue rows under a board row's Issue in the view in effect; see
+   * `splitSidebarBoard`. Each view keeps its own collapsed set.
+   */
   toggleBoardIssueCollapsed: (issueId: string) => void;
   shortcutModel: SidebarShortcutModel;
 }
 
 const SidebarModelContext = createContext<SidebarModel | null>(null);
+
+const NO_PROJECTS: SidebarProjectEntry[] = [];
+const NO_WORKSPACE_ENTRIES: ReadonlyMap<string, SidebarWorkspaceEntry> = new Map();
 
 export function SidebarModelProvider({
   active,
@@ -70,6 +103,8 @@ export function SidebarModelProvider({
   const groupMode = useSidebarViewStore((state) => state.groupMode);
   const labelFilter = useSidebarViewStore((state) => state.labelFilter);
   const projectFilters = useSidebarViewStore((state) => state.projectFilters);
+  const storedBoardView = useSidebarViewStore((state) => state.boardView);
+  const setBoardView = useSidebarViewStore((state) => state.setBoardView);
   const reconcileLabelFilter = useSidebarViewStore((state) => state.reconcileLabelFilter);
   const { hosts: labelHosts } = useWorkspaceLabelProjection();
   const collapsedProjectKeys = useSidebarCollapsedSectionsStore(
@@ -83,10 +118,10 @@ export function SidebarModelProvider({
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
   );
-  const collapsedBoardIssueIds = useSidebarCollapsedSectionsStore(
-    (state) => state.collapsedBoardIssueIds,
+  const collapsedBoardIssueIdsByView = useSidebarCollapsedSectionsStore(
+    (state) => state.collapsedBoardIssueIdsByView,
   );
-  const toggleBoardIssueCollapsed = useSidebarCollapsedSectionsStore(
+  const toggleBoardIssueCollapsedInView = useSidebarCollapsedSectionsStore(
     (state) => state.toggleBoardIssueCollapsed,
   );
   const availableLabelNames = useMemo(
@@ -161,6 +196,20 @@ export function SidebarModelProvider({
   // Collapse is applied here, before the projection, so the keyboard shortcut numbers skip a
   // hidden row as they skip a collapsed project's.
   const board = useSidebarBoard({ enabled: active !== false });
+  const boardViews = useMemo(() => resolveBoardViews(board), [board]);
+  // The stored view is resolved, never rewritten: a team the file no longer carries falls back to
+  // `all` here and applies again when a file carries it, as `resolveActiveProjectFilters` does.
+  const boardView = resolveBoardView(boardViews, storedBoardView);
+  const boardTeam = boardViewTeam(boardView);
+  const boardOnly = boardTeam !== null;
+  const collapsedBoardIssueIds = collapsedBoardIssueIdsForView(
+    { collapsedBoardIssueIdsByView },
+    boardView,
+  );
+  const toggleBoardIssueCollapsed = useCallback(
+    (issueId: string) => toggleBoardIssueCollapsedInView(boardView, issueId),
+    [boardView, toggleBoardIssueCollapsedInView],
+  );
   const {
     boardWorkspaces,
     projects: unboardedProjects,
@@ -172,18 +221,25 @@ export function SidebarModelProvider({
         projects: filteredProjects,
         workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
         collapsedIssueIds: collapsedBoardIssueIds,
+        team: boardTeam,
       }),
-    [board, collapsedBoardIssueIds, filteredProjects, filteredWorkspaceEntriesByKey],
+    [board, boardTeam, collapsedBoardIssueIds, filteredProjects, filteredWorkspaceEntriesByKey],
   );
-  const pinnedKeys = usePinnedSidebarKeys(unboardedProjects);
+  // A team view lists the board block alone: the lists below it are built over nothing, so the
+  // Pinned section, the groups and the unmatched workspaces are not shown and not numbered.
+  const listedProjects = boardOnly ? NO_PROJECTS : unboardedProjects;
+  const listedWorkspaceEntriesByKey = boardOnly
+    ? NO_WORKSPACE_ENTRIES
+    : unboardedWorkspaceEntriesByKey;
+  const pinnedKeys = usePinnedSidebarKeys(listedProjects);
   const projectionInput = useMemo(
     () => ({
-      projects: unboardedProjects,
+      projects: listedProjects,
       pinnedKeys,
       boardWorkspaces,
       iconProjects: filteredProjects,
       pinnedWorkspaceOrder,
-      workspaceEntriesByKey: unboardedWorkspaceEntriesByKey,
+      workspaceEntriesByKey: listedWorkspaceEntriesByKey,
       projectNamesByViewKey: list.projectNamesByViewKey,
       groupMode,
       pinnedCollapsed,
@@ -196,13 +252,13 @@ export function SidebarModelProvider({
       collapsedWorkspaceGroupKeys,
       groupMode,
       list.projectNamesByViewKey,
-      unboardedProjects,
+      listedProjects,
       filteredProjects,
       boardWorkspaces,
       pinnedCollapsed,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      unboardedWorkspaceEntriesByKey,
+      listedWorkspaceEntriesByKey,
       t,
     ],
   );
@@ -216,6 +272,10 @@ export function SidebarModelProvider({
       hasProjectsBeforeFilter: list.projects.length > 0,
       workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
       boardWorkspaces,
+      boardViews,
+      boardView,
+      setBoardView,
+      boardOnly,
       groupMode,
       workspaceGroups: projection.workspaceGroups,
       projectIconTargets: projection.projectIconTargets,
@@ -236,6 +296,10 @@ export function SidebarModelProvider({
       toggleBoardIssueCollapsed,
       filteredWorkspaceEntriesByKey,
       boardWorkspaces,
+      boardViews,
+      boardView,
+      setBoardView,
+      boardOnly,
     ],
   );
 

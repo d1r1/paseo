@@ -80,6 +80,7 @@ describe("WorkspaceShortcutTargetsSubscriber", () => {
 
     useKeyboardShortcutsStore.setState({
       sidebarShortcutWorkspaceTargets: [],
+      boardViewKeys: ["stale"],
     });
     useSidebarCollapsedSectionsStore.setState({
       collapsedProjectKeys: new Set(),
@@ -137,6 +138,18 @@ describe("WorkspaceShortcutTargetsSubscriber", () => {
       { serverId: "srv", workspaceId: "ws-1" },
       { serverId: "srv", workspaceId: "ws-2" },
     ]);
+  });
+
+  it("publishes no board view keys without a board, so Ctrl+Shift+digit selects nothing", async () => {
+    await act(async () => {
+      root?.render(
+        <SidebarModelProvider>
+          <WorkspaceShortcutTargetsSubscriber enabled={true} />
+        </SidebarModelProvider>,
+      );
+    });
+
+    expect(useKeyboardShortcutsStore.getState().boardViewKeys).toEqual([]);
   });
 
   it("publishes status-mode shortcut targets in visual status order", async () => {

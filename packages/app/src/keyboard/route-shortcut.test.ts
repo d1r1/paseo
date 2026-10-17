@@ -18,6 +18,7 @@ function makeCtx(overrides: Partial<ShortcutRoutingContext> = {}): ShortcutRouti
     pathname: "/h/srv/workspace/ws-2",
     isMobile: false,
     sidebarShortcutTargets: SIDEBAR_TARGETS,
+    boardViewKeys: ["DSK", "all"],
     navigationActiveWorkspace: null,
     commandCenterOpen: false,
     shortcutsDialogOpen: false,
@@ -158,6 +159,47 @@ describe("routeKeyboardShortcut — workspace.navigate.index", () => {
         { action: "workspace.navigate.index", payload: { index: 1 } },
         makeCtx({ sidebarShortcutTargets: [] }),
       ),
+    ).toEqual<ShortcutAction>({ kind: "none" });
+  });
+});
+
+describe("routeKeyboardShortcut — board.view.select", () => {
+  it.each([
+    [1, "DSK"],
+    [2, "all"],
+  ])("selects the view at index %i in the order the filter shows", (index, viewKey) => {
+    expect(
+      routeKeyboardShortcut({ action: "board.view.select", payload: { index } }, makeCtx()),
+    ).toEqual<ShortcutAction>({ kind: "board-view-select", viewKey });
+  });
+
+  it("routes a third team's index once the file carries it", () => {
+    expect(
+      routeKeyboardShortcut(
+        { action: "board.view.select", payload: { index: 3 } },
+        makeCtx({ boardViewKeys: ["DSK", "FLU", "all"] }),
+      ),
+    ).toEqual<ShortcutAction>({ kind: "board-view-select", viewKey: "all" });
+  });
+
+  it("returns none past the end of the view list", () => {
+    expect(
+      routeKeyboardShortcut({ action: "board.view.select", payload: { index: 3 } }, makeCtx()),
+    ).toEqual<ShortcutAction>({ kind: "none" });
+  });
+
+  it("returns none without a board", () => {
+    expect(
+      routeKeyboardShortcut(
+        { action: "board.view.select", payload: { index: 1 } },
+        makeCtx({ boardViewKeys: [] }),
+      ),
+    ).toEqual<ShortcutAction>({ kind: "none" });
+  });
+
+  it("returns none when the index payload is missing", () => {
+    expect(
+      routeKeyboardShortcut({ action: "board.view.select", payload: null }, makeCtx()),
     ).toEqual<ShortcutAction>({ kind: "none" });
   });
 });

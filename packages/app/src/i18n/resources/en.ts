@@ -1194,6 +1194,11 @@ export const en = {
         all: "All projects",
       },
     },
+    board: {
+      views: {
+        all: "all",
+      },
+    },
     filterEmpty: {
       title: "No workspaces match",
       description: "Change or clear the sidebar filters to see workspaces.",
@@ -2474,6 +2479,7 @@ export const en = {
         jumpToTab: "Jump to tab",
         previousWorkspace: "Previous workspace",
         nextWorkspace: "Next workspace",
+        switchBoardView: "Switch board view",
         previousTab: "Previous tab",
         nextTab: "Next tab",
         splitPaneRight: "Split pane right",

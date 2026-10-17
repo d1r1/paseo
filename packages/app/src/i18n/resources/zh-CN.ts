@@ -1178,6 +1178,11 @@ export const zhCN: TranslationResources = {
         all: "所有项目",
       },
     },
+    board: {
+      views: {
+        all: "全部",
+      },
+    },
     filterEmpty: {
       title: "没有匹配的工作区",
       description: "更改或清除侧边栏筛选以查看工作区。",
@@ -2322,6 +2327,7 @@ export const zhCN: TranslationResources = {
         jumpToTab: "跳转到标签",
         previousWorkspace: "上一个 workspace",
         nextWorkspace: "下一个 workspace",
+        switchBoardView: "切换看板视图",
         previousTab: "上一个标签",
         nextTab: "下一个标签",
         splitPaneRight: "向右拆分窗格",

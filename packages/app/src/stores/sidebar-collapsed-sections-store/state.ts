@@ -1,10 +1,20 @@
 import { z } from "zod";
 
+/**
+ * The board view that shows the sidebar as it was, with every team's rows; the one a team view
+ * falls back to, and the one whose collapsed set the pre-view store field becomes.
+ */
+export const ALL_BOARD_VIEW_KEY = "all";
+
 export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
   collapsedWorkspaceGroupKeys: Set<string>;
-  /** Issues of Desk's board block (`DSK-N`) whose sub-issue rows are hidden. */
-  collapsedBoardIssueIds: Set<string>;
+  /**
+   * Issues of Desk's board block (`TEAM-N`) whose sub-issue rows are hidden, per board view
+   * (`all` or a team key). Each view keeps its own set: collapsing in one view leaves the others
+   * as they were. A view without an entry has nothing collapsed.
+   */
+  collapsedBoardIssueIdsByView: Map<string, Set<string>>;
   collapsedPinned: boolean;
 }
 
@@ -13,6 +23,7 @@ export interface PersistedCollapsedProjects {
   collapsedWorkspaceGroupKeys?: string[];
   collapsedStatusGroupKeys?: string[];
   collapsedBoardIssueIds?: string[];
+  collapsedBoardIssueIdsByView?: Record<string, string[]>;
   collapsedPinned?: boolean;
 }
 
@@ -22,9 +33,22 @@ export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProje
     collapsedWorkspaceGroupKeys: z.array(z.string()).optional(),
     // COMPAT(sidebarWorkspaceGroupCollapse): added in v0.4.0, remove after 2027-02-14.
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
+    // COMPAT(boardCollapseByView): added in the fork after v0.11.4, remove after 2026-12-31. The
+    // one set DSK-37 stored is read as the `all` view's when the per-view record is absent.
     collapsedBoardIssueIds: z.array(z.string()).optional(),
+    collapsedBoardIssueIdsByView: z.record(z.string(), z.array(z.string())).optional(),
     collapsedPinned: z.boolean().optional(),
   });
+
+const NO_COLLAPSED_BOARD_ISSUE_IDS: ReadonlySet<string> = new Set();
+
+/** The collapsed Issue ids of one board view; one shared empty set for a view without any. */
+export function collapsedBoardIssueIdsForView(
+  state: Pick<CollapsedProjectsState, "collapsedBoardIssueIdsByView">,
+  viewKey: string,
+): ReadonlySet<string> {
+  return state.collapsedBoardIssueIdsByView.get(viewKey) ?? NO_COLLAPSED_BOARD_ISSUE_IDS;
+}
 
 export function togglePinnedCollapsed(state: CollapsedProjectsState): CollapsedProjectsState {
   return { ...state, collapsedPinned: !state.collapsedPinned };
@@ -58,15 +82,22 @@ export function toggleWorkspaceGroupCollapsed(
 
 export function toggleBoardIssueCollapsed(
   state: CollapsedProjectsState,
+  viewKey: string,
   issueId: string,
 ): CollapsedProjectsState {
-  const next = new Set(state.collapsedBoardIssueIds);
+  const next = new Set(state.collapsedBoardIssueIdsByView.get(viewKey));
   if (next.has(issueId)) {
     next.delete(issueId);
   } else {
     next.add(issueId);
   }
-  return { ...state, collapsedBoardIssueIds: next };
+  const byView = new Map(state.collapsedBoardIssueIdsByView);
+  if (next.size === 0) {
+    byView.delete(viewKey);
+  } else {
+    byView.set(viewKey, next);
+  }
+  return { ...state, collapsedBoardIssueIdsByView: byView };
 }
 
 export function setProjectCollapsed(
@@ -86,15 +117,36 @@ export function setProjectCollapsed(
 export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedProjectKeys: string[];
   collapsedWorkspaceGroupKeys: string[];
-  collapsedBoardIssueIds: string[];
+  collapsedBoardIssueIdsByView: Record<string, string[]>;
   collapsedPinned: boolean;
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
     collapsedWorkspaceGroupKeys: Array.from(state.collapsedWorkspaceGroupKeys),
-    collapsedBoardIssueIds: Array.from(state.collapsedBoardIssueIds),
+    collapsedBoardIssueIdsByView: Object.fromEntries(
+      Array.from(state.collapsedBoardIssueIdsByView, ([viewKey, issueIds]) => [
+        viewKey,
+        Array.from(issueIds),
+      ]),
+    ),
     collapsedPinned: state.collapsedPinned,
   };
+}
+
+function readPersistedBoardIssueIdsByView(
+  persisted: PersistedCollapsedProjects,
+  current: Map<string, Set<string>>,
+): Map<string, Set<string>> {
+  if (persisted.collapsedBoardIssueIdsByView) {
+    return deserializeCollapsedKeysByView(persisted.collapsedBoardIssueIdsByView);
+  }
+  // COMPAT(boardCollapseByView): added in the fork after v0.11.4, remove after 2026-12-31.
+  if (persisted.collapsedBoardIssueIds) {
+    return deserializeCollapsedKeysByView({
+      [ALL_BOARD_VIEW_KEY]: persisted.collapsedBoardIssueIds,
+    });
+  }
+  return current;
 }
 
 export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState>(
@@ -114,14 +166,15 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
       persisted.collapsedStatusGroupKeys ??
       Array.from(current.collapsedWorkspaceGroupKeys),
   );
-  const restoredBoardIssues = deserializeCollapsedKeys(
-    persisted.collapsedBoardIssueIds ?? Array.from(current.collapsedBoardIssueIds),
+  const restoredBoardIssuesByView = readPersistedBoardIssueIdsByView(
+    persisted,
+    current.collapsedBoardIssueIdsByView,
   );
   const restoredPinned = persisted.collapsedPinned ?? current.collapsedPinned;
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
     areSetsEqual(current.collapsedWorkspaceGroupKeys, restoredWorkspaceGroups) &&
-    areSetsEqual(current.collapsedBoardIssueIds, restoredBoardIssues) &&
+    areSetMapsEqual(current.collapsedBoardIssueIdsByView, restoredBoardIssuesByView) &&
     current.collapsedPinned === restoredPinned
   ) {
     return current;
@@ -130,13 +183,35 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
     ...current,
     collapsedProjectKeys: restoredProjects,
     collapsedWorkspaceGroupKeys: restoredWorkspaceGroups,
-    collapsedBoardIssueIds: restoredBoardIssues,
+    collapsedBoardIssueIdsByView: restoredBoardIssuesByView,
     collapsedPinned: restoredPinned,
   };
 }
 
 function deserializeCollapsedKeys(value: string[]): Set<string> {
   return new Set(value);
+}
+
+/** A view whose stored list is empty gets no entry, as `toggleBoardIssueCollapsed` keeps none. */
+function deserializeCollapsedKeysByView(value: Record<string, string[]>): Map<string, Set<string>> {
+  const byView = new Map<string, Set<string>>();
+  for (const [viewKey, issueIds] of Object.entries(value)) {
+    if (issueIds.length > 0) byView.set(viewKey, new Set(issueIds));
+  }
+  return byView;
+}
+
+function areSetMapsEqual(left: Map<string, Set<string>>, right: Map<string, Set<string>>): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [key, leftSet] of left) {
+    const rightSet = right.get(key);
+    if (!rightSet || !areSetsEqual(leftSet, rightSet)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function areSetsEqual(left: Set<string>, right: Set<string>): boolean {

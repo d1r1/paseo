@@ -116,6 +116,8 @@ interface StatusWorkspaceListProps {
   groups: SidebarWorkspaceGroup[];
   /** Desk's board block, above the Pinned section. Not grouped by status. */
   boardWorkspaces: SidebarWorkspaceEntry[];
+  /** A team view: the board block and nothing else. See `SidebarWorkspaceListProps.boardOnly`. */
+  boardOnly?: boolean;
   /** Collapses or expands the sub-issue rows under a board row's Issue. */
   onToggleBoardIssueCollapsed: (issueId: string) => void;
   pinnedWorkspaces: SidebarWorkspaceEntry[];
@@ -137,6 +139,7 @@ interface StatusWorkspaceListProps {
 export function SidebarStatusWorkspaceList({
   groups,
   boardWorkspaces,
+  boardOnly = false,
   onToggleBoardIssueCollapsed,
   pinnedWorkspaces,
   projectIconByProjectViewKey,
@@ -204,30 +207,34 @@ export function SidebarStatusWorkspaceList({
       supportsPinningByServerId,
     ],
   );
-  const content = (
+  const boardSection =
+    boardWorkspaces.length > 0 ? (
+      <View style={styles.boardSection} testID="sidebar-board-section">
+        {boardWorkspaces.map((workspace) => (
+          <StatusWorkspaceRow
+            key={workspace.workspaceKey}
+            workspace={workspace}
+            onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
+            {...buildStatusRowProjectPresentation({
+              workspace,
+              projectIconByProjectViewKey,
+              hostBadgeByServerId,
+            })}
+            inStatusGroup={false}
+            shortcutNumber={statusShortcutIndex.get(workspace.workspaceKey) ?? null}
+            showShortcutBadge={showShortcutBadges}
+            canPin={supportsPinningByServerId.get(workspace.serverId) === true}
+            onToggleWorkspacePin={onToggleWorkspacePin}
+            onWorkspacePress={onWorkspacePress}
+          />
+        ))}
+      </View>
+    ) : null;
+  const content = boardOnly ? (
+    boardSection
+  ) : (
     <>
-      {boardWorkspaces.length > 0 ? (
-        <View style={styles.boardSection} testID="sidebar-board-section">
-          {boardWorkspaces.map((workspace) => (
-            <StatusWorkspaceRow
-              key={workspace.workspaceKey}
-              workspace={workspace}
-              onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
-              {...buildStatusRowProjectPresentation({
-                workspace,
-                projectIconByProjectViewKey,
-                hostBadgeByServerId,
-              })}
-              inStatusGroup={false}
-              shortcutNumber={statusShortcutIndex.get(workspace.workspaceKey) ?? null}
-              showShortcutBadge={showShortcutBadges}
-              canPin={supportsPinningByServerId.get(workspace.serverId) === true}
-              onToggleWorkspacePin={onToggleWorkspacePin}
-              onWorkspacePress={onWorkspacePress}
-            />
-          ))}
-        </View>
-      ) : null}
+      {boardSection}
       {pinnedWorkspaces.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
           <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />

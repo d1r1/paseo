@@ -6,10 +6,14 @@ import type {
   SidebarWorkspacePlacement,
 } from "@/hooks/sidebar-workspaces-view-model";
 import {
+  ALL_BOARD_VIEW_KEY,
   applyBoardCollapse,
+  boardViewTeam,
   formatBoardCaption,
   parseBoardIssueId,
   projectSidebarBoard,
+  resolveBoardView,
+  resolveBoardViews,
   splitSidebarBoard,
   type SidebarBoardRow,
 } from "./sidebar-board";
@@ -44,6 +48,8 @@ describe("parseBoardIssueId", () => {
     ["DSK-34 sidebar board", "DSK-34"],
     ["DSK-34", "DSK-34"],
     ["DSK-34\tfork", "DSK-34"],
+    ["FLU-12 other team", "FLU-12"],
+    ["X1-7 a team key with a digit", "X1-7"],
   ])("reads the leading token of %j", (title, expected) => {
     expect(parseBoardIssueId(title)).toBe(expected);
   });
@@ -54,12 +60,73 @@ describe("parseBoardIssueId", () => {
     ["DSK-345x"],
     ["DSK-34-fork"],
     ["DSK-"],
+    ["-34 no team"],
+    ["1A-34 team key starting with a digit"],
     ["dsk-34 lowercase"],
     [" DSK-34 leading space"],
-    ["FLU-12 other team"],
     [""],
   ])("reads no token from %j", (title) => {
     expect(parseBoardIssueId(title)).toBeNull();
+  });
+});
+
+describe("resolveBoardViews", () => {
+  it("offers one view per team in file order, then all", () => {
+    expect(resolveBoardViews(board(issue("DSK-1"), issue("DSK-2")))).toEqual([
+      { key: "DSK", label: "dsk" },
+      { key: ALL_BOARD_VIEW_KEY, label: "all" },
+    ]);
+    expect(
+      resolveBoardViews(
+        board(
+          issue("DSK-1"),
+          issue("FLU-1", { team: "FLU" }),
+          issue("DSK-2"),
+          issue("FLU-2", { team: "FLU" }),
+        ),
+      ),
+    ).toEqual([
+      { key: "DSK", label: "dsk" },
+      { key: "FLU", label: "flu" },
+      { key: ALL_BOARD_VIEW_KEY, label: "all" },
+    ]);
+  });
+
+  it("keeps the team key as the file spells it", () => {
+    expect(resolveBoardViews(board(issue("Per-1", { team: "Per" })))).toEqual([
+      { key: "Per", label: "per" },
+      { key: ALL_BOARD_VIEW_KEY, label: "all" },
+    ]);
+  });
+
+  it.each([
+    ["no board", null],
+    ["an empty board", board()],
+    ["a board with a repeated id", board(issue("DSK-1"), issue("DSK-1"))],
+    ["a board with a parent cycle", board(issue("DSK-1", { parent: "DSK-1" }))],
+  ])("offers no view for %s", (_label, unusable) => {
+    expect(resolveBoardViews(unusable)).toEqual([]);
+  });
+});
+
+describe("resolveBoardView", () => {
+  const views = resolveBoardViews(board(issue("DSK-1"), issue("FLU-1", { team: "FLU" })));
+
+  it("keeps a stored key the views carry", () => {
+    expect(resolveBoardView(views, "DSK")).toBe("DSK");
+    expect(resolveBoardView(views, "FLU")).toBe("FLU");
+    expect(resolveBoardView(views, ALL_BOARD_VIEW_KEY)).toBe(ALL_BOARD_VIEW_KEY);
+  });
+
+  it("falls back to all for a team the views do not carry, a lowercase key, or no views", () => {
+    expect(resolveBoardView(views, "PER")).toBe(ALL_BOARD_VIEW_KEY);
+    expect(resolveBoardView(views, "dsk")).toBe(ALL_BOARD_VIEW_KEY);
+    expect(resolveBoardView([], "DSK")).toBe(ALL_BOARD_VIEW_KEY);
+  });
+
+  it("names the team a view filters by, and none for all", () => {
+    expect(boardViewTeam("DSK")).toBe("DSK");
+    expect(boardViewTeam(ALL_BOARD_VIEW_KEY)).toBeNull();
   });
 });
 
@@ -325,6 +392,56 @@ describe("projectSidebarBoard", () => {
   });
 });
 
+describe("projectSidebarBoard with two teams", () => {
+  const twoTeams = board(
+    issue("DSK-1", { sortOrder: 1 }),
+    issue("FLU-1", { team: "FLU", parent: "DSK-1", sortOrder: 1 }),
+    issue("DSK-2", { parent: "FLU-1", sortOrder: 1 }),
+    issue("DSK-3", { parent: "DSK-1", sortOrder: 2 }),
+    issue("FLU-2", { team: "FLU", sortOrder: 2 }),
+  );
+  const workspaces = [ws("FLU-2 b"), ws("DSK-3 c"), ws("DSK-2 d"), ws("FLU-1 a"), ws("DSK-1 root")];
+
+  it("matches a FLU-N workspace once the file carries that Issue, and an id not in the file never", () => {
+    const rows = projectSidebarBoard({
+      board: twoTeams,
+      workspaces: [ws("FLU-2 b"), ws("FLU-9 unknown"), ws("PER-1 other file")],
+    });
+
+    expect(ids(rows)).toEqual(["FLU-2 b"]);
+  });
+
+  it("lists every team's rows with no team, as before", () => {
+    const rows = projectSidebarBoard({ board: twoTeams, workspaces, team: null });
+
+    expect(ids(rows)).toEqual(["DSK-1 root", "FLU-1 a", "DSK-2 d", "DSK-3 c", "FLU-2 b"]);
+    expect(rows.map((row) => row.info.depth)).toEqual([0, 1, 2, 1, 0]);
+    expect(ids(projectSidebarBoard({ board: twoTeams, workspaces }))).toEqual(ids(rows));
+  });
+
+  it("keeps one team's rows and recomputes depth, ancestors and hasChildren over them", () => {
+    const rows = projectSidebarBoard({ board: twoTeams, workspaces, team: "DSK" });
+
+    // FLU-1 adds no row and no level, so DSK-2 sits directly under DSK-1 beside DSK-3.
+    expect(ids(rows)).toEqual(["DSK-1 root", "DSK-2 d", "DSK-3 c"]);
+    expect(rows.map((row) => row.info.depth)).toEqual([0, 1, 1]);
+    expect(rows.map((row) => row.info.ancestorIssueIds)).toEqual([[], ["DSK-1"], ["DSK-1"]]);
+    expect(rows.map((row) => row.info.hasChildren)).toEqual([true, false, false]);
+  });
+
+  it("gives a parent of another team no row, so its only child of the team has no chevron", () => {
+    const rows = projectSidebarBoard({ board: twoTeams, workspaces, team: "FLU" });
+
+    expect(ids(rows)).toEqual(["FLU-1 a", "FLU-2 b"]);
+    expect(rows.map((row) => row.info.depth)).toEqual([0, 0]);
+    expect(rows.map((row) => row.info.hasChildren)).toEqual([false, false]);
+  });
+
+  it("matches nothing for a team the file does not carry", () => {
+    expect(projectSidebarBoard({ board: twoTeams, workspaces, team: "PER" })).toEqual([]);
+  });
+});
+
 describe("applyBoardCollapse", () => {
   const tree = board(
     issue("DSK-1", { sortOrder: 1 }),
@@ -467,11 +584,12 @@ function makeProject(viewKey: string, entries: SidebarWorkspaceEntry[]): Sidebar
   };
 }
 
+const desk = [makeEntry("DSK-36 sidebar", "desk"), makeEntry("scratch", "desk")];
+const paseo = [makeEntry("DSK-34 board", "paseo"), makeEntry("DSK-37 collapse", "paseo")];
+const projects = [makeProject("desk", desk), makeProject("paseo", paseo)];
+const entries = new Map([...desk, ...paseo].map((entry) => [entry.workspaceKey, entry]));
+
 describe("splitSidebarBoard", () => {
-  const desk = [makeEntry("DSK-36 sidebar", "desk"), makeEntry("scratch", "desk")];
-  const paseo = [makeEntry("DSK-34 board", "paseo"), makeEntry("DSK-37 collapse", "paseo")];
-  const projects = [makeProject("desk", desk), makeProject("paseo", paseo)];
-  const entries = new Map([...desk, ...paseo].map((entry) => [entry.workspaceKey, entry]));
   const feature = board(
     issue("DSK-34", { status: "In Progress" }),
     issue("DSK-36", {
@@ -687,5 +805,86 @@ describe("splitSidebarBoard", () => {
       ["DSK-37 collapse", 0],
       ["DSK-36 sidebar", 0],
     ]);
+  });
+});
+
+describe("splitSidebarBoard with a team", () => {
+  const flu = [makeEntry("FLU-1 widget", "fluent")];
+  const twoTeamProjects = [...projects, makeProject("fluent", flu)];
+  const twoTeamEntries = new Map(
+    [...desk, ...paseo, ...flu].map((entry) => [entry.workspaceKey, entry]),
+  );
+  const twoTeams = board(
+    issue("DSK-34", { status: "In Progress" }),
+    issue("DSK-37", { parent: "DSK-34", sortOrder: 1, status: "Backlog" }),
+    issue("DSK-36", { parent: "DSK-34", sortOrder: 2, status: "In Progress" }),
+    issue("FLU-1", { team: "FLU", status: "Todo" }),
+  );
+
+  it("keeps that team's rows in the block and leaves the other team's in the lists below", () => {
+    const split = splitSidebarBoard({
+      board: twoTeams,
+      projects: twoTeamProjects,
+      workspaceEntriesByKey: twoTeamEntries,
+      team: "DSK",
+    });
+
+    expect(split.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual([
+      "DSK-34 board",
+      "DSK-37 collapse",
+      "DSK-36 sidebar",
+    ]);
+    expect(split.projects.map((project) => project.viewKey)).toEqual(["desk", "fluent"]);
+    expect([...split.workspaceEntriesByKey.keys()]).toEqual(["srv:scratch", "srv:FLU-1 widget"]);
+  });
+
+  it("lists the other team alone under its own view", () => {
+    const split = splitSidebarBoard({
+      board: twoTeams,
+      projects: twoTeamProjects,
+      workspaceEntriesByKey: twoTeamEntries,
+      team: "FLU",
+    });
+
+    expect(split.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual(["FLU-1 widget"]);
+    expect(split.boardWorkspaces[0]?.board).toMatchObject({ depth: 0, status: "Todo" });
+    expect(split.projects.map((project) => project.viewKey)).toEqual(["desk", "paseo"]);
+  });
+
+  it("lists every team with no team, and applies the collapsed set to the team's rows", () => {
+    const all = splitSidebarBoard({
+      board: twoTeams,
+      projects: twoTeamProjects,
+      workspaceEntriesByKey: twoTeamEntries,
+      team: null,
+    });
+    const collapsed = splitSidebarBoard({
+      board: twoTeams,
+      projects: twoTeamProjects,
+      workspaceEntriesByKey: twoTeamEntries,
+      team: "DSK",
+      collapsedIssueIds: new Set(["DSK-34"]),
+    });
+
+    expect(all.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual([
+      "DSK-34 board",
+      "DSK-37 collapse",
+      "DSK-36 sidebar",
+      "FLU-1 widget",
+    ]);
+    expect(collapsed.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual(["DSK-34 board"]);
+  });
+
+  it("returns the sidebar as it was for a team the file does not carry", () => {
+    const split = splitSidebarBoard({
+      board: twoTeams,
+      projects: twoTeamProjects,
+      workspaceEntriesByKey: twoTeamEntries,
+      team: "PER",
+    });
+
+    expect(split.boardWorkspaces).toEqual([]);
+    expect(split.projects).toBe(twoTeamProjects);
+    expect(split.workspaceEntriesByKey).toBe(twoTeamEntries);
   });
 });

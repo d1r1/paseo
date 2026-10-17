@@ -23,6 +23,7 @@ import {
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
+import { SidebarBoardFilter } from "@/components/sidebar/sidebar-board-filter";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
@@ -77,6 +78,7 @@ interface SidebarSharedProps {
   hasActiveProjectFilter: boolean;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   boardWorkspaces: SidebarWorkspaceEntry[];
+  boardOnly: boolean;
   isInitialLoad: boolean;
   isRevalidating: boolean;
   isManualRefresh: boolean;
@@ -128,6 +130,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     resolvedProjectFilters,
     workspaceEntriesByKey,
     boardWorkspaces,
+    boardOnly,
     isInitialLoad,
     isRevalidating,
     refreshAll,
@@ -224,6 +227,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     hasActiveProjectFilter: resolvedProjectFilters.length > 0,
     workspaceEntriesByKey,
     boardWorkspaces,
+    boardOnly,
     isInitialLoad,
     isRevalidating,
     isManualRefresh,
@@ -525,6 +529,7 @@ function MobileSidebar({
   hasActiveProjectFilter,
   workspaceEntriesByKey,
   boardWorkspaces,
+  boardOnly,
   isInitialLoad,
   isRevalidating,
   isManualRefresh,
@@ -569,6 +574,7 @@ function MobileSidebar({
       <View style={styles.sidebarContent} pointerEvents="auto">
         <WindowChromeSafeArea placement="below" />
         <SidebarNavRows style={styles.sidebarHeaderGroup} onBeforeNavigate={closeSidebar} />
+        <SidebarBoardFilter />
         <WindowChromeSafeArea
           placement="inline"
           pointerEvents="box-none"
@@ -610,6 +616,7 @@ function MobileSidebar({
             hasActiveProjectFilter={hasActiveProjectFilter}
             workspaceEntriesByKey={workspaceEntriesByKey}
             boardWorkspaces={boardWorkspaces}
+            boardOnly={boardOnly}
             isRefreshing={isManualRefresh && isRevalidating}
             onRefresh={handleRefresh}
             onWorkspacePress={handleWorkspacePress}
@@ -645,6 +652,7 @@ function DesktopSidebar({
   hasActiveProjectFilter,
   workspaceEntriesByKey,
   boardWorkspaces,
+  boardOnly,
   isInitialLoad,
   isRevalidating,
   isManualRefresh,
@@ -773,6 +781,7 @@ function DesktopSidebar({
             <TitlebarDragRegion />
           )}
           <SidebarNavRows style={sidebarHeaderGroupStyle} />
+          <SidebarBoardFilter />
         </View>
 
         {isInitialLoad && !hasActiveHostFilter ? (
@@ -792,6 +801,7 @@ function DesktopSidebar({
             hasActiveProjectFilter={hasActiveProjectFilter}
             workspaceEntriesByKey={workspaceEntriesByKey}
             boardWorkspaces={boardWorkspaces}
+            boardOnly={boardOnly}
             isRefreshing={isManualRefresh && isRevalidating}
             onRefresh={handleRefresh}
             onAddProject={handleOpenProject}

@@ -1199,6 +1199,11 @@ export const ja: TranslationResources = {
         all: "すべてのプロジェクト",
       },
     },
+    board: {
+      views: {
+        all: "すべて",
+      },
+    },
     filterEmpty: {
       title: "一致するワークスペースがありません",
       description:
@@ -2371,6 +2376,7 @@ export const ja: TranslationResources = {
         jumpToTab: "タブにジャンプ",
         previousWorkspace: "前のワークスペース",
         nextWorkspace: "次のワークスペース",
+        switchBoardView: "ボードビューを切り替え",
         previousTab: "前のタブ",
         nextTab: "次のタブ",
         splitPaneRight: "右にペインを分割",
