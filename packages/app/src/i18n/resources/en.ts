@@ -1286,6 +1286,8 @@ export const en = {
         newWorkspace: "New workspace",
         showMore: "Show more",
         showLess: "Show less",
+        collapseSubIssues: "Collapse sub-issues of {{issueId}}",
+        expandSubIssues: "Expand sub-issues of {{issueId}}",
         createWorkspaceFor: "Create a new workspace for {{projectName}}",
         copyPath: "Copy path",
         copyBranchName: "Copy branch name",

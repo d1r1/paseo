@@ -15,20 +15,20 @@ A UI wish said in Desk's Manager tab becomes a Desk Issue. Desk's flow engine cr
 
 Paths are under `packages/app/src/`. The app is Expo (iOS, Android, web, Electron), so read [platform gating](../../../CLAUDE.md#platform-gating) before adding a DOM or native API.
 
-| To change                                                                               | Start at                                                                                                          |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| The left sidebar frame: titlebar row, dev-build badge, footer rows, resize and collapse | `components/left-sidebar.tsx`                                                                                     |
-| The sidebar's workspace list: projects, groups, drag order                              | `components/sidebar-workspace-list.tsx`                                                                           |
-| Sidebar rows and their parts: workspace row, header rows, nav rows, status list, menus  | `components/sidebar/`                                                                                             |
-| Which header and footer items show and in what order                                    | `sidebar-nav/model.ts`, read through `sidebar-nav/use-sidebar-nav-items.ts`                                       |
-| The data a sidebar row shows                                                            | `hooks/use-sidebar-workspaces-list.ts` (list) and `hooks/sidebar-workspaces-view-model.ts` (row model)            |
-| Sidebar display preferences (grouping, filters, labels), persisted                      | `stores/sidebar-view-store.ts`                                                                                    |
-| Desk's board block (board-ordered workspaces) and its path setting                      | `components/sidebar/sidebar-board.ts`, [contract](../../../docs/development.md#desks-board-in-the-sidebar)        |
-| The Sidebar settings page                                                               | `screens/settings/sidebar/`                                                                                       |
-| A route or what a URL opens                                                             | `app/` (Expo Router; `app/h/[serverId]/` holds the per-host routes)                                               |
-| A screen's content                                                                      | `screens/` (settings, new workspace, projects, schedules, sessions, workspace)                                    |
-| Command Center (the palette): its UI, items, shortcuts                                  | `command-center/` (UI in `command-center.tsx`, items in `*-contributions.ts`, registered by `*-registration.tsx`) |
-| Command Center items that plugins add                                                   | `plugins/command-center/`                                                                                         |
+| To change                                                                               | Start at                                                                                                                                               |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The left sidebar frame: titlebar row, dev-build badge, footer rows, resize and collapse | `components/left-sidebar.tsx`                                                                                                                          |
+| The sidebar's workspace list: projects, groups, drag order                              | `components/sidebar-workspace-list.tsx`                                                                                                                |
+| Sidebar rows and their parts: workspace row, header rows, nav rows, status list, menus  | `components/sidebar/`                                                                                                                                  |
+| Which header and footer items show and in what order                                    | `sidebar-nav/model.ts`, read through `sidebar-nav/use-sidebar-nav-items.ts`                                                                            |
+| The data a sidebar row shows                                                            | `hooks/use-sidebar-workspaces-list.ts` (list) and `hooks/sidebar-workspaces-view-model.ts` (row model)                                                 |
+| Sidebar display preferences (grouping, filters, labels), persisted                      | `stores/sidebar-view-store.ts`                                                                                                                         |
+| Desk's board block (board-ordered workspaces, collapse) and its path setting            | `components/sidebar/sidebar-board.ts`, `stores/sidebar-collapsed-sections-store/`, [contract](../../../docs/development.md#desks-board-in-the-sidebar) |
+| The Sidebar settings page                                                               | `screens/settings/sidebar/`                                                                                                                            |
+| A route or what a URL opens                                                             | `app/` (Expo Router; `app/h/[serverId]/` holds the per-host routes)                                                                                    |
+| A screen's content                                                                      | `screens/` (settings, new workspace, projects, schedules, sessions, workspace)                                                                         |
+| Command Center (the palette): its UI, items, shortcuts                                  | `command-center/` (UI in `command-center.tsx`, items in `*-contributions.ts`, registered by `*-registration.tsx`)                                      |
+| Command Center items that plugins add                                                   | `plugins/command-center/`                                                                                                                              |
 
 Reuse before adding: `components/ui/` holds the primitives (button, dropdown menu, status badge). Tokens live in `styles/theme.ts`.
 

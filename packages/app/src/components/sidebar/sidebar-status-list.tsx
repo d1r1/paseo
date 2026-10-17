@@ -116,6 +116,8 @@ interface StatusWorkspaceListProps {
   groups: SidebarWorkspaceGroup[];
   /** Desk's board block, above the Pinned section. Not grouped by status. */
   boardWorkspaces: SidebarWorkspaceEntry[];
+  /** Collapses or expands the sub-issue rows under a board row's Issue. */
+  onToggleBoardIssueCollapsed: (issueId: string) => void;
   pinnedWorkspaces: SidebarWorkspaceEntry[];
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -135,6 +137,7 @@ interface StatusWorkspaceListProps {
 export function SidebarStatusWorkspaceList({
   groups,
   boardWorkspaces,
+  onToggleBoardIssueCollapsed,
   pinnedWorkspaces,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey,
@@ -209,6 +212,7 @@ export function SidebarStatusWorkspaceList({
             <StatusWorkspaceRow
               key={workspace.workspaceKey}
               workspace={workspace}
+              onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
               {...buildStatusRowProjectPresentation({
                 workspace,
                 projectIconByProjectViewKey,
@@ -525,6 +529,7 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
   onToggleWorkspacePin,
   reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
+  onToggleBoardIssueCollapsed,
   onWorkspacePress,
   drag,
   isDragging = false,
@@ -544,6 +549,8 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
    * are a flat list under their own header and sit flush.
    */
   inStatusGroup?: boolean;
+  /** Set on board rows only; the row shows a chevron when its Issue has sub-issue rows. */
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   onWorkspacePress?: () => void;
   drag?: () => void;
   isDragging?: boolean;
@@ -573,6 +580,7 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
       onToggleWorkspacePin={onToggleWorkspacePin}
       reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       inStatusGroup={inStatusGroup}
+      onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       onPress={handlePress}
       drag={drag}
       isDragging={isDragging}
@@ -593,6 +601,7 @@ function StatusWorkspaceRowWithMenu({
   onToggleWorkspacePin,
   reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
+  onToggleBoardIssueCollapsed,
   onPress,
   drag,
   isDragging = false,
@@ -613,6 +622,8 @@ function StatusWorkspaceRowWithMenu({
    * are a flat list under their own header and sit flush.
    */
   inStatusGroup?: boolean;
+  /** Set on board rows only; the row shows a chevron when its Issue has sub-issue rows. */
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   onPress: () => void;
   drag?: () => void;
   isDragging?: boolean;
@@ -720,6 +731,7 @@ function StatusWorkspaceRowWithMenu({
         onTogglePin={onTogglePin}
         reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
         inStatusGroup={inStatusGroup}
+        onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
         drag={drag}
         isDragging={isDragging}
         dragHandleProps={dragHandleProps}
@@ -759,6 +771,8 @@ interface StatusWorkspaceRowInnerProps {
   reserveIdleStatusIndicatorSpace?: boolean;
   /** Pinned rows are flat under their own header; status-group rows indent from theirs. */
   inStatusGroup?: boolean;
+  /** Set on board rows only; the row shows a chevron when its Issue has sub-issue rows. */
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   drag?: () => void;
   isDragging?: boolean;
   dragHandleProps?: DraggableListDragHandleProps;
@@ -805,6 +819,7 @@ function StatusWorkspaceRowInnerContent({
   onTogglePin,
   reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
+  onToggleBoardIssueCollapsed,
   isDragging = false,
   dragHandleProps,
   dragInteraction,
@@ -927,6 +942,7 @@ function StatusWorkspaceRowInnerContent({
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
                 reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
+                onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
               >
                 {renderSlot ? (
                   <StatusWorkspaceActionSlot

@@ -1,7 +1,16 @@
 import { memo, useMemo, useCallback, useState, type ReactNode } from "react";
-import { Text, View, type ViewStyle } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Pressable, Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  Folder,
+  FolderGit2,
+  Monitor,
+} from "lucide-react-native";
+import { isWeb } from "@/constants/platform";
 import { ProjectStatusIndicator } from "@/components/sidebar/project-leading-visual";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import {
@@ -10,6 +19,7 @@ import {
 } from "@/components/sidebar/workspace-meta-row";
 import { WorkspaceHoverCard } from "@/components/workspace-hover-card";
 import type { HostBadgeModel } from "@/hosts/appearance";
+import type { SidebarBoardRowInfo } from "@/hooks/sidebar-workspaces-view-model";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { formatBoardCaption } from "@/components/sidebar/sidebar-board";
 import {
@@ -32,6 +42,7 @@ import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
   fill: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,
@@ -40,6 +51,8 @@ const needsInputColorMapping = (theme: Theme) => ({
 // Past this many levels a board row stops moving right; a deeper chain would squeeze the title.
 const MAX_BOARD_INDENT_LEVELS = 3;
 
+const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedChevronRight = withUnistyles(ChevronRight);
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedMonitor = withUnistyles(Monitor);
 const ThemedFolder = withUnistyles(Folder);
@@ -104,6 +117,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   shortcutNumber = null,
   showShortcutBadge = false,
   reserveIdleStatusIndicatorSpace = true,
+  onToggleBoardIssueCollapsed,
   children,
 }: {
   workspace: SidebarWorkspaceEntry;
@@ -121,6 +135,8 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   showShortcutBadge?: boolean;
   /** Keep the empty leading slot when the workspace has no active status. */
   reserveIdleStatusIndicatorSpace?: boolean;
+  /** Collapses or expands the sub-issue rows under a board row's Issue. Read on board rows only. */
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   children?: ReactNode;
 }) {
   const {
@@ -154,6 +170,13 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   return (
     <View style={styles.workspaceRowContent}>
       <View style={rowMainStyle}>
+        {board ? (
+          <BoardCollapseSlot
+            board={board}
+            workspaceKey={workspace.workspaceKey}
+            onToggle={onToggleBoardIssueCollapsed}
+          />
+        ) : null}
         {leadingProjectName ? (
           <ProjectStatusIndicator
             iconDataUri={leadingProjectIconDataUri}
@@ -206,6 +229,54 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
     </View>
   );
 });
+
+/**
+ * The leading slot of a board row. Every board row has it, so rows of one depth share a rail
+ * whether or not they have sub-issues; only a row whose Issue has sub-issue rows gets the chevron.
+ * It is its own Pressable inside the row's, so a press toggles the Issue and does not open the
+ * workspace: the responder system gives the press to the innermost target.
+ */
+function BoardCollapseSlot({
+  board,
+  workspaceKey,
+  onToggle,
+}: {
+  board: SidebarBoardRowInfo;
+  workspaceKey: string;
+  onToggle?: (issueId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const issueId = board.issueId;
+  const handlePress = useCallback(() => onToggle?.(issueId), [issueId, onToggle]);
+  const accessibilityState = useMemo(() => ({ expanded: !board.collapsed }), [board.collapsed]);
+  if (!board.hasChildren || !onToggle) {
+    return <View style={styles.boardCollapseSlot} />;
+  }
+  const Chevron = board.collapsed ? ThemedChevronRight : ThemedChevronDown;
+  return (
+    <Pressable
+      accessibilityRole={isWeb ? undefined : "button"}
+      accessibilityLabel={t(
+        board.collapsed
+          ? "sidebar.workspace.actions.expandSubIssues"
+          : "sidebar.workspace.actions.collapseSubIssues",
+        { issueId },
+      )}
+      accessibilityState={accessibilityState}
+      onPress={handlePress}
+      hitSlop={4}
+      style={styles.boardCollapseSlot}
+      testID={`sidebar-board-chevron-${workspaceKey}`}
+    >
+      {({ hovered, pressed }) => (
+        <Chevron
+          size={14}
+          uniProps={hovered || pressed ? foregroundColorMapping : foregroundMutedColorMapping}
+        />
+      )}
+    </Pressable>
+  );
+}
 
 function WorkspaceStatusIndicator({
   bucket,
@@ -498,6 +569,14 @@ const styles = StyleSheet.create((theme) => ({
   workspaceContentColumn: {
     flex: 1,
     minWidth: 0,
+  },
+  // The width and height of the status slot beside it, so the chevron sits on the same line.
+  boardCollapseSlot: {
+    width: theme.iconSize.md,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   boardCaption: {
     color: theme.colors.foregroundMuted,

@@ -3,6 +3,8 @@ import { z } from "zod";
 export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
   collapsedWorkspaceGroupKeys: Set<string>;
+  /** Issues of Desk's board block (`DSK-N`) whose sub-issue rows are hidden. */
+  collapsedBoardIssueIds: Set<string>;
   collapsedPinned: boolean;
 }
 
@@ -10,6 +12,7 @@ export interface PersistedCollapsedProjects {
   collapsedProjectKeys?: string[];
   collapsedWorkspaceGroupKeys?: string[];
   collapsedStatusGroupKeys?: string[];
+  collapsedBoardIssueIds?: string[];
   collapsedPinned?: boolean;
 }
 
@@ -19,6 +22,7 @@ export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProje
     collapsedWorkspaceGroupKeys: z.array(z.string()).optional(),
     // COMPAT(sidebarWorkspaceGroupCollapse): added in v0.4.0, remove after 2027-02-14.
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
+    collapsedBoardIssueIds: z.array(z.string()).optional(),
     collapsedPinned: z.boolean().optional(),
   });
 
@@ -52,6 +56,19 @@ export function toggleWorkspaceGroupCollapsed(
   return { ...state, collapsedWorkspaceGroupKeys: next };
 }
 
+export function toggleBoardIssueCollapsed(
+  state: CollapsedProjectsState,
+  issueId: string,
+): CollapsedProjectsState {
+  const next = new Set(state.collapsedBoardIssueIds);
+  if (next.has(issueId)) {
+    next.delete(issueId);
+  } else {
+    next.add(issueId);
+  }
+  return { ...state, collapsedBoardIssueIds: next };
+}
+
 export function setProjectCollapsed(
   state: CollapsedProjectsState,
   projectKey: string,
@@ -69,11 +86,13 @@ export function setProjectCollapsed(
 export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedProjectKeys: string[];
   collapsedWorkspaceGroupKeys: string[];
+  collapsedBoardIssueIds: string[];
   collapsedPinned: boolean;
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
     collapsedWorkspaceGroupKeys: Array.from(state.collapsedWorkspaceGroupKeys),
+    collapsedBoardIssueIds: Array.from(state.collapsedBoardIssueIds),
     collapsedPinned: state.collapsedPinned,
   };
 }
@@ -95,10 +114,14 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
       persisted.collapsedStatusGroupKeys ??
       Array.from(current.collapsedWorkspaceGroupKeys),
   );
+  const restoredBoardIssues = deserializeCollapsedKeys(
+    persisted.collapsedBoardIssueIds ?? Array.from(current.collapsedBoardIssueIds),
+  );
   const restoredPinned = persisted.collapsedPinned ?? current.collapsedPinned;
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
     areSetsEqual(current.collapsedWorkspaceGroupKeys, restoredWorkspaceGroups) &&
+    areSetsEqual(current.collapsedBoardIssueIds, restoredBoardIssues) &&
     current.collapsedPinned === restoredPinned
   ) {
     return current;
@@ -107,6 +130,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
     ...current,
     collapsedProjectKeys: restoredProjects,
     collapsedWorkspaceGroupKeys: restoredWorkspaceGroups,
+    collapsedBoardIssueIds: restoredBoardIssues,
     collapsedPinned: restoredPinned,
   };
 }

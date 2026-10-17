@@ -224,6 +224,8 @@ interface SidebarWorkspaceListProps {
   boardWorkspaces: SidebarWorkspaceEntry[];
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectViewKey: string) => void;
+  /** Collapses or expands the sub-issue rows under a board row's Issue. */
+  onToggleBoardIssueCollapsed: (issueId: string) => void;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   groupMode: SidebarGroupMode;
   isRefreshing?: boolean;
@@ -291,6 +293,7 @@ interface WorkspaceRowInnerProps {
   isPinned?: boolean;
   onTogglePin?: () => void;
   reserveIdleStatusIndicatorSpace?: boolean;
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
 }
 
 export function PrBadge({ hint, style }: { hint: PrHint; style?: StyleProp<ViewStyle> }) {
@@ -1077,6 +1080,7 @@ function WorkspaceRowInner({
   isPinned,
   onTogglePin,
   reserveIdleStatusIndicatorSpace = true,
+  onToggleBoardIssueCollapsed,
 }: WorkspaceRowInnerProps) {
   const isCompact = useIsCompactFormFactor();
   const [isPressed, setIsPressed] = useState(false);
@@ -1178,6 +1182,7 @@ function WorkspaceRowInner({
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
                 reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
+                onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
               >
                 <WorkspaceRowRightGroup
                   workspace={workspace}
@@ -1226,6 +1231,7 @@ function WorkspaceRowWithMenu({
   onToggleWorkspacePin,
   reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
+  onToggleBoardIssueCollapsed,
 }: {
   workspace: SidebarWorkspaceEntry;
   hostBadge?: HostBadgeModel | null;
@@ -1243,6 +1249,7 @@ function WorkspaceRowWithMenu({
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
   reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -1355,6 +1362,7 @@ function WorkspaceRowWithMenu({
         isPinned={isPinned}
         onTogglePin={onTogglePin}
         reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
+        onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       />
       <WorkspaceRenameModal
         visible={isRenameOpen}
@@ -1379,6 +1387,8 @@ interface WorkspaceRowItemProps {
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
   reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
+  /** Set on board rows only; the row shows a chevron when its Issue has sub-issue rows. */
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   selectionEnabled: boolean;
   activeWorkspaceSelection: ActiveWorkspaceSelection | null;
   onWorkspacePress?: () => void;
@@ -1400,6 +1410,7 @@ function WorkspaceRowItem({
   onToggleWorkspacePin,
   reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
+  onToggleBoardIssueCollapsed,
   selectionEnabled,
   activeWorkspaceSelection,
   onWorkspacePress,
@@ -1428,6 +1439,7 @@ function WorkspaceRowItem({
       onToggleWorkspacePin={onToggleWorkspacePin}
       reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
+      onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       selected={isWorkspaceSelected({
         selection: activeWorkspaceSelection,
         serverId: workspace.serverId,
@@ -1471,6 +1483,7 @@ function areWorkspaceRowItemPropsEqual(
     previous.onToggleWorkspacePin === next.onToggleWorkspacePin &&
     previous.reserveIdleStatusIndicatorSpace === next.reserveIdleStatusIndicatorSpace &&
     previous.isCreating === next.isCreating &&
+    previous.onToggleBoardIssueCollapsed === next.onToggleBoardIssueCollapsed &&
     previous.onWorkspacePress === next.onWorkspacePress &&
     previous.drag === next.drag &&
     previous.isDragging === next.isDragging &&
@@ -1497,6 +1510,7 @@ function WorkspaceRow({
   onToggleWorkspacePin,
   reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
+  onToggleBoardIssueCollapsed,
   selected,
 }: {
   workspaceEntry: SidebarWorkspaceEntry | null;
@@ -1514,6 +1528,7 @@ function WorkspaceRow({
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
   reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
+  onToggleBoardIssueCollapsed?: (issueId: string) => void;
   selected: boolean;
 }) {
   if (!workspaceEntry) {
@@ -1538,6 +1553,7 @@ function WorkspaceRow({
       onToggleWorkspacePin={onToggleWorkspacePin}
       reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
+      onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
     />
   );
 }
@@ -1894,6 +1910,7 @@ export function SidebarWorkspaceList({
   boardWorkspaces,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
+  onToggleBoardIssueCollapsed,
   shortcutIndexByWorkspaceKey,
   groupMode,
   isRefreshing: _isRefreshing = false,
@@ -1972,6 +1989,7 @@ export function SidebarWorkspaceList({
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
         boardWorkspaces={boardWorkspaces}
+        onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
         onWorkspacePress={onWorkspacePress}
@@ -1990,6 +2008,7 @@ export function SidebarWorkspaceList({
         pinnedGroups={pinnedGroups}
         workspaceEntriesByKey={workspaceEntriesByKey}
         boardWorkspaces={boardWorkspaces}
+        onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         collapsedProjectKeys={collapsedProjectKeys}
         onToggleProjectCollapsed={onToggleProjectCollapsed}
@@ -2026,6 +2045,7 @@ function SidebarGroupedModeList({
   pinnedGroups,
   workspaceEntriesByKey,
   boardWorkspaces,
+  onToggleBoardIssueCollapsed,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey: _projectShortcutIndex,
   onWorkspacePress,
@@ -2042,6 +2062,7 @@ function SidebarGroupedModeList({
   pinnedGroups: PinnedSidebarGroups;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   boardWorkspaces: SidebarWorkspaceEntry[];
+  onToggleBoardIssueCollapsed: (issueId: string) => void;
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   onWorkspacePress?: () => void;
@@ -2068,6 +2089,7 @@ function SidebarGroupedModeList({
     <SidebarStatusWorkspaceList
       groups={workspaceGroups}
       boardWorkspaces={boardWorkspaces}
+      onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       pinnedWorkspaces={pinnedWorkspaces}
       projectIconByProjectViewKey={projectIconByProjectViewKey}
       shortcutIndexByWorkspaceKey={_projectShortcutIndex}
@@ -2093,6 +2115,7 @@ function ProjectModeList({
   projectIconByProjectViewKey,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
+  onToggleBoardIssueCollapsed,
   shortcutIndexByWorkspaceKey,
   onWorkspacePress,
   onAddProject,
@@ -2423,6 +2446,7 @@ function ProjectModeList({
         selectionEnabled={selectionEnabled}
         activeWorkspaceSelection={activeWorkspaceSelection}
         onWorkspacePress={onWorkspacePress}
+        onToggleBoardIssueCollapsed={onToggleBoardIssueCollapsed}
       />
     ),
     [
@@ -2430,6 +2454,7 @@ function ProjectModeList({
       creatingWorkspaceIds,
       hostBadgeByServerId,
       onWorkspacePress,
+      onToggleBoardIssueCollapsed,
       projectIconByProjectViewKey,
       selectionEnabled,
       shortcutIndexByWorkspaceKey,

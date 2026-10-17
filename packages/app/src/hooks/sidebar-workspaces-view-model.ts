@@ -40,6 +40,12 @@ export interface SidebarBoardRowInfo {
   issueId: string;
   /** How many matched ancestors the Issue has; a missing ancestor adds no level. */
   depth: number;
+  /** The matched ancestor Issues, nearest last; the Issues whose collapse hides this row. */
+  ancestorIssueIds: readonly string[];
+  /** True on the first workspace of an Issue with a matched descendant row: the row with the chevron. */
+  hasChildren: boolean;
+  /** True when the Issue is collapsed, so its matched descendants' rows are hidden. */
+  collapsed: boolean;
   /** The Issue's Linear status, as the board file spells it. */
   status: string;
   /** The run step, or null when the Issue has no run or the run has no step. */

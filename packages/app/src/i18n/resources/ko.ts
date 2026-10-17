@@ -1285,6 +1285,8 @@ export const ko: TranslationResources = {
         newWorkspace: "새 워크스페이스",
         showMore: "더 보기",
         showLess: "간략히 보기",
+        collapseSubIssues: "{{issueId}}의 하위 이슈 접기",
+        expandSubIssues: "{{issueId}}의 하위 이슈 펼치기",
         createWorkspaceFor: "{{projectName}}을(를) 위한 새 워크스페이스 생성",
         copyPath: "경로 복사",
         copyBranchName: "브랜치 이름 복사",
