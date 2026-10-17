@@ -155,11 +155,11 @@ Do this from a terminal outside Paseo (Terminal.app): quitting Paseo ends the te
 
    ```bash
    BACKUP=~/.paseo-backup-$(date +%Y%m%d-%H%M)
-   cp -Rp ~/.paseo "$BACKUP"
-   diff -rq ~/.paseo "$BACKUP" && echo backup identical
+   rsync -a --exclude /worktrees ~/.paseo/ "$BACKUP"/
+   diff -rq -x worktrees ~/.paseo "$BACKUP" && echo backup identical
    ```
 
-   The backup holds agents, projects, plugins and `config.json`. Keep it until the fork has run well for a while.
+   The backup holds agents, projects, plugins and `config.json`. It leaves out `~/.paseo/worktrees`: the switch does not touch those checkouts, and with their `node_modules` a full copy takes very long. Keep the backup until the fork has run well for a while.
 
 #### Switch
 
@@ -191,12 +191,12 @@ readlink ~/.local/bin/paseo      # /Applications/Paseo.app/Contents/Resources/bi
 paseo --version                  # 0.11.4-desk.1
 paseo daemon status              # running; home is ~/.paseo
 paseo ls -a -g > ~/paseo-switch/agents-after.txt
-diff ~/paseo-switch/agents-before.txt ~/paseo-switch/agents-after.txt
+diff <(awk 'NR>1 {print $1}' ~/paseo-switch/agents-before.txt | sort) <(awk 'NR>1 {print $1}' ~/paseo-switch/agents-after.txt | sort)
 paseo plugin ls   | diff ~/paseo-switch/plugins-before.txt -
 paseo provider ls | diff ~/paseo-switch/providers-before.txt -
 ```
 
-The agent list must hold the same agents; status and time columns may differ, the ids may not. Open one agent from the list and send it a prompt: it continues its own session. Settings > About shows `0.11.4-desk.1`. If `~/.local/bin/paseo` is missing or points elsewhere, press Install under Settings > Integrations > Command line.
+The agent list must hold the same agent ids. `paseo ls` shows the 200 newest agents, so an agent that existed only before the switch pushes an old one out of the window, and the diff shows one id on each side. Such an agent is a short-lived one that was running when you saved the list, for example a `Herald summary`; `paseo agent inspect <id>` then reports `Agent not found`. Any other missing id is a lost agent. Open one agent from the list and send it a prompt: it continues its own session. Settings > About shows `0.11.4-desk.1`. If `~/.local/bin/paseo` is missing or points elsewhere, press Install under Settings > Integrations > Command line.
 
 #### Roll back
 
@@ -213,8 +213,11 @@ Restoring the backup is a separate step, for when you want the state from before
 
 ```bash
 mv ~/.paseo ~/.paseo-after-fork
-cp -Rp "$BACKUP" ~/.paseo      # $BACKUP is the directory from step 3; list ~/.paseo-backup-* if the shell lost it
+rsync -a "$BACKUP"/ ~/.paseo/   # $BACKUP is the directory from step 3; list ~/.paseo-backup-* if the shell lost it
+mv ~/.paseo-after-fork/worktrees ~/.paseo/worktrees
 ```
+
+The backup has no `worktrees`, so the last line moves the checkouts back from the fork's state.
 
 Delete `~/Applications/Paseo-fork.app` and `~/.paseo-after-fork` when you no longer need them. If a rollback follows a failed first launch, `~/Applications/Paseo-fork.app` is the fork build; rebuild from the worktree instead of repairing it.
 
