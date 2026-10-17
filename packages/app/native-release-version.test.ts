@@ -23,6 +23,10 @@ describe("native release version", () => {
     });
   });
 
+  it("treats a fork build as the stable release it is based on", () => {
+    expect(getNativeReleaseVersion("0.11.4-desk.1")).toEqual(getNativeReleaseVersion("0.11.4"));
+  });
+
   it("rejects beta numbers that consume the stable iOS build slot", () => {
     expect(() => getNativeReleaseVersion("0.2.6-beta.999")).toThrow(
       "iOS beta number must be between 1 and 998",

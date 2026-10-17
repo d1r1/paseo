@@ -1,0 +1,17 @@
+# Desk's fork build: a locally signed macOS app that replaces the released Paseo.app.
+# Build it with `npm run build:desktop:fork` from the repository root; the steps are in
+# docs/development.md ("Installing the fork app over the released one").
+#
+# The script passes `--mac dir --arm64` on the command line. Targets stay out of this file:
+# electron-builder concatenates `target` lists across `extends`, so a list here would add to the
+# base file's dmg and zip instead of replacing them.
+extends: electron-builder.yml
+# No update feed: the packaged app has no app-update.yml, so it never checks for or downloads
+# an upstream release.
+publish: null
+mac:
+  # Ad-hoc signature, no Developer ID, nothing to notarize. The Hardened Runtime's library
+  # validation rejects ad-hoc-signed frameworks, so it stays off.
+  identity: "-"
+  hardenedRuntime: false
+  notarize: false
