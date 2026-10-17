@@ -1292,6 +1292,8 @@ export const ja: TranslationResources = {
         newWorkspace: "新しいワークスペース",
         showMore: "さらに表示",
         showLess: "表示を減らす",
+        collapseSubIssues: "{{issueId}} のサブイシューを折りたたむ",
+        expandSubIssues: "{{issueId}} のサブイシューを展開する",
         createWorkspaceFor: "{{projectName}}の新しいワークスペースを作成",
         copyPath: "パスをコピー",
         copyBranchName: "ブランチ名をコピー",

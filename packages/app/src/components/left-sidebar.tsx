@@ -84,6 +84,7 @@ interface SidebarSharedProps {
   collapsedProjectKeys: ReadonlySet<string>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
+  toggleBoardIssueCollapsed: (issueId: string) => void;
   handleRefresh: () => void;
   handleOpenProject: () => void;
   handleImportSession: () => void;
@@ -135,6 +136,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     pinnedGroups,
     collapsedProjectKeys,
     toggleProjectCollapsed,
+    toggleBoardIssueCollapsed,
     groupMode,
     shortcutModel,
   } = useSidebarModel();
@@ -229,6 +231,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     collapsedProjectKeys,
     shortcutIndexByWorkspaceKey,
     toggleProjectCollapsed,
+    toggleBoardIssueCollapsed,
     handleRefresh,
     labels,
   };
@@ -529,6 +532,7 @@ function MobileSidebar({
   collapsedProjectKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
+  toggleBoardIssueCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -595,6 +599,7 @@ function MobileSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
+            onToggleBoardIssueCollapsed={toggleBoardIssueCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}
@@ -647,6 +652,7 @@ function DesktopSidebar({
   collapsedProjectKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
+  toggleBoardIssueCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -775,6 +781,7 @@ function DesktopSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
+            onToggleBoardIssueCollapsed={toggleBoardIssueCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}

@@ -51,6 +51,8 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   pinnedGroups: PinnedSidebarGroups;
   collapsedProjectKeys: ReadonlySet<string>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
+  /** Collapses or expands the sub-issue rows under a board row's Issue; see `splitSidebarBoard`. */
+  toggleBoardIssueCollapsed: (issueId: string) => void;
   shortcutModel: SidebarShortcutModel;
 }
 
@@ -80,6 +82,12 @@ export function SidebarModelProvider({
   const pinnedWorkspaceOrder = useSidebarOrderStore((state) => state.pinnedWorkspaceOrder);
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
+  );
+  const collapsedBoardIssueIds = useSidebarCollapsedSectionsStore(
+    (state) => state.collapsedBoardIssueIds,
+  );
+  const toggleBoardIssueCollapsed = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleBoardIssueCollapsed,
   );
   const availableLabelNames = useMemo(
     () => labelHosts.flatMap((host) => host.labels.map((label) => label.name)),
@@ -150,6 +158,8 @@ export function SidebarModelProvider({
   ]);
   // The board only reorders and annotates: the stored project, workspace and pin orders are read
   // and written as before, and a workspace the board takes is just left out of the lists below it.
+  // Collapse is applied here, before the projection, so the keyboard shortcut numbers skip a
+  // hidden row as they skip a collapsed project's.
   const board = useSidebarBoard({ enabled: active !== false });
   const {
     boardWorkspaces,
@@ -161,8 +171,9 @@ export function SidebarModelProvider({
         board,
         projects: filteredProjects,
         workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+        collapsedIssueIds: collapsedBoardIssueIds,
       }),
-    [board, filteredProjects, filteredWorkspaceEntriesByKey],
+    [board, collapsedBoardIssueIds, filteredProjects, filteredWorkspaceEntriesByKey],
   );
   const pinnedKeys = usePinnedSidebarKeys(unboardedProjects);
   const projectionInput = useMemo(
@@ -211,6 +222,7 @@ export function SidebarModelProvider({
       pinnedGroups: projection.pinnedGroups,
       collapsedProjectKeys,
       toggleProjectCollapsed,
+      toggleBoardIssueCollapsed,
       shortcutModel: projection.shortcutModel,
     }),
     [
@@ -221,6 +233,7 @@ export function SidebarModelProvider({
       filteredProjects,
       projection,
       toggleProjectCollapsed,
+      toggleBoardIssueCollapsed,
       filteredWorkspaceEntriesByKey,
       boardWorkspaces,
     ],

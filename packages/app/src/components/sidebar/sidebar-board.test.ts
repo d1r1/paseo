@@ -6,6 +6,7 @@ import type {
   SidebarWorkspacePlacement,
 } from "@/hooks/sidebar-workspaces-view-model";
 import {
+  applyBoardCollapse,
   formatBoardCaption,
   parseBoardIssueId,
   projectSidebarBoard,
@@ -34,7 +35,7 @@ function ws(name: string, key = name) {
   return { name, key };
 }
 
-function ids(rows: SidebarBoardRow<{ key: string }>[]): string[] {
+function ids(rows: readonly SidebarBoardRow<{ key: string }>[]): string[] {
   return rows.map((row) => row.workspace.key);
 }
 
@@ -253,6 +254,67 @@ describe("projectSidebarBoard", () => {
     ).toEqual([]);
   });
 
+  it("marks the first workspace of an Issue with a matched descendant row, and names the ancestors", () => {
+    const rows = projectSidebarBoard({
+      board: feature,
+      workspaces: [
+        ws("DSK-37 collapse"),
+        ws("DSK-34 desk", "34-desk"),
+        ws("DSK-34 paseo", "34-paseo"),
+        ws("DSK-36 reads"),
+      ],
+    });
+
+    expect(rows.map((row) => [row.workspace.key, row.info.hasChildren])).toEqual([
+      ["34-desk", true],
+      ["34-paseo", false],
+      ["DSK-37 collapse", false],
+      ["DSK-36 reads", false],
+    ]);
+    expect(rows.map((row) => row.info.ancestorIssueIds)).toEqual([[], [], ["DSK-34"], ["DSK-34"]]);
+    expect(rows.every((row) => row.info.collapsed === false)).toBe(true);
+  });
+
+  it("gives no chevron to an Issue whose descendants have no workspace", () => {
+    const rows = projectSidebarBoard({
+      board: feature,
+      workspaces: [ws("DSK-34 a"), ws("DSK-37 b")],
+    });
+
+    expect(rows.map((row) => [row.info.issueId, row.info.hasChildren])).toEqual([
+      ["DSK-34", true],
+      ["DSK-37", false],
+    ]);
+    expect(
+      projectSidebarBoard({ board: feature, workspaces: [ws("DSK-34 a")] }).map(
+        (row) => row.info.hasChildren,
+      ),
+    ).toEqual([false]);
+  });
+
+  it("skips an Issue without a workspace in the ancestors and still marks the nearest matched one", () => {
+    const rows = projectSidebarBoard({
+      board: board(
+        issue("DSK-1"),
+        issue("DSK-2", { parent: "DSK-1" }),
+        issue("DSK-3", { parent: "DSK-2" }),
+        issue("DSK-4", { parent: "DSK-3" }),
+      ),
+      workspaces: [ws("DSK-1 a"), ws("DSK-3 c"), ws("DSK-4 d")],
+    });
+
+    expect(rows.map((row) => [row.info.issueId, row.info.hasChildren])).toEqual([
+      ["DSK-1", true],
+      ["DSK-3", true],
+      ["DSK-4", false],
+    ]);
+    expect(rows.map((row) => row.info.ancestorIssueIds)).toEqual([
+      [],
+      ["DSK-1"],
+      ["DSK-1", "DSK-3"],
+    ]);
+  });
+
   it("does not mutate its inputs", () => {
     const workspaces = [ws("DSK-36 a"), ws("DSK-34 b")];
     const before = JSON.stringify([feature, workspaces]);
@@ -260,6 +322,108 @@ describe("projectSidebarBoard", () => {
     projectSidebarBoard({ board: feature, workspaces });
 
     expect(JSON.stringify([feature, workspaces])).toBe(before);
+  });
+});
+
+describe("applyBoardCollapse", () => {
+  const tree = board(
+    issue("DSK-1", { sortOrder: 1 }),
+    issue("DSK-2", { parent: "DSK-1", sortOrder: 2 }),
+    issue("DSK-3", { parent: "DSK-1", sortOrder: 1 }),
+    issue("DSK-4", { parent: "DSK-2", sortOrder: 1 }),
+    issue("DSK-5", { sortOrder: 2 }),
+  );
+  const rows = projectSidebarBoard({
+    board: tree,
+    workspaces: [
+      ws("DSK-4 d"),
+      ws("DSK-2 b"),
+      ws("DSK-1 a"),
+      ws("DSK-3 c"),
+      ws("DSK-5 e"),
+      ws("DSK-2 second", "2-second"),
+    ],
+  });
+
+  it("shows a Feature with two sub-issues as one parent row and two children, in sortOrder order", () => {
+    const feature = projectSidebarBoard({
+      board: board(
+        issue("DSK-34", { sortOrder: 100 }),
+        issue("DSK-36", { parent: "DSK-34", sortOrder: 2 }),
+        issue("DSK-37", { parent: "DSK-34", sortOrder: 1 }),
+      ),
+      workspaces: [ws("DSK-36 b"), ws("DSK-34 a"), ws("DSK-37 c")],
+    });
+
+    const expanded = applyBoardCollapse(feature, new Set());
+    expect(ids(expanded)).toEqual(["DSK-34 a", "DSK-37 c", "DSK-36 b"]);
+    expect(expanded.map((row) => [row.info.depth, row.info.hasChildren])).toEqual([
+      [0, true],
+      [1, false],
+      [1, false],
+    ]);
+
+    const collapsed = applyBoardCollapse(feature, new Set(["DSK-34"]));
+    expect(ids(collapsed)).toEqual(["DSK-34 a"]);
+    expect(collapsed[0]?.info).toMatchObject({ hasChildren: true, collapsed: true });
+  });
+
+  it("returns the rows unchanged for an empty collapsed set", () => {
+    expect(applyBoardCollapse(rows, new Set())).toBe(rows);
+    expect(ids(rows)).toEqual(["DSK-1 a", "DSK-3 c", "DSK-2 b", "2-second", "DSK-4 d", "DSK-5 e"]);
+  });
+
+  it("collapsing a root hides its whole subtree and leaves the root and the other roots", () => {
+    const visible = applyBoardCollapse(rows, new Set(["DSK-1"]));
+
+    expect(ids(visible)).toEqual(["DSK-1 a", "DSK-5 e"]);
+    expect(visible.map((row) => row.info.collapsed)).toEqual([true, false]);
+  });
+
+  it("collapsing a middle node hides only its subtree", () => {
+    const visible = applyBoardCollapse(rows, new Set(["DSK-2"]));
+
+    expect(ids(visible)).toEqual(["DSK-1 a", "DSK-3 c", "DSK-2 b", "2-second", "DSK-5 e"]);
+    expect(visible.map((row) => row.info.collapsed)).toEqual([false, false, true, true, false]);
+  });
+
+  it("keeps a second workspace of the collapsed Issue itself", () => {
+    const visible = applyBoardCollapse(rows, new Set(["DSK-2"]));
+
+    expect(visible.map((row) => [row.workspace.key, row.info.hasChildren])).toContainEqual([
+      "2-second",
+      false,
+    ]);
+  });
+
+  it("adds no collapse level for an Issue without a workspace", () => {
+    const gap = projectSidebarBoard({
+      board: board(
+        issue("DSK-1"),
+        issue("DSK-2", { parent: "DSK-1" }),
+        issue("DSK-3", { parent: "DSK-2" }),
+      ),
+      workspaces: [ws("DSK-1 a"), ws("DSK-3 c")],
+    });
+
+    // DSK-2 has no row, so collapsing it hides nothing; collapsing DSK-1 hides DSK-3's row.
+    expect(ids(applyBoardCollapse(gap, new Set(["DSK-2"])))).toEqual(["DSK-1 a", "DSK-3 c"]);
+    expect(ids(applyBoardCollapse(gap, new Set(["DSK-1"])))).toEqual(["DSK-1 a"]);
+  });
+
+  it("ignores a collapsed id that is not on the board and leaves the hidden rows out of the result", () => {
+    const visible = applyBoardCollapse(rows, new Set(["DSK-99"]));
+
+    expect(ids(visible)).toEqual(ids(rows));
+    expect(visible.every((row) => row.info.collapsed === false)).toBe(true);
+  });
+
+  it("does not mutate the rows it was given", () => {
+    const before = JSON.stringify(rows);
+
+    applyBoardCollapse(rows, new Set(["DSK-1", "DSK-2"]));
+
+    expect(JSON.stringify(rows)).toBe(before);
   });
 });
 
@@ -328,9 +492,33 @@ describe("splitSidebarBoard", () => {
       "DSK-36 sidebar",
     ]);
     expect(split.boardWorkspaces.map((entry) => entry.board)).toEqual([
-      { issueId: "DSK-34", depth: 0, status: "In Progress", step: null },
-      { issueId: "DSK-37", depth: 1, status: "Backlog", step: null },
-      { issueId: "DSK-36", depth: 1, status: "In Progress", step: "implement" },
+      {
+        issueId: "DSK-34",
+        depth: 0,
+        ancestorIssueIds: [],
+        hasChildren: true,
+        collapsed: false,
+        status: "In Progress",
+        step: null,
+      },
+      {
+        issueId: "DSK-37",
+        depth: 1,
+        ancestorIssueIds: ["DSK-34"],
+        hasChildren: false,
+        collapsed: false,
+        status: "Backlog",
+        step: null,
+      },
+      {
+        issueId: "DSK-36",
+        depth: 1,
+        ancestorIssueIds: ["DSK-34"],
+        hasChildren: false,
+        collapsed: false,
+        status: "In Progress",
+        step: "implement",
+      },
     ]);
     expect(split.projects.map((project) => project.workspaces.length)).toEqual([1]);
     expect(split.projects[0]?.workspaces[0]?.workspaceId).toBe("scratch");
@@ -391,7 +579,44 @@ describe("splitSidebarBoard", () => {
     expect(entries.get("srv:DSK-36 sidebar")?.board).toBeUndefined();
   });
 
-  it.each([
+  it("hides the rows under a collapsed Issue and still keeps them out of the lists below", () => {
+    const split = splitSidebarBoard({
+      board: feature,
+      projects,
+      workspaceEntriesByKey: entries,
+      collapsedIssueIds: new Set(["DSK-34"]),
+    });
+
+    expect(split.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual(["DSK-34 board"]);
+    expect(split.boardWorkspaces[0]?.board).toMatchObject({ hasChildren: true, collapsed: true });
+    // The hidden sub-issue workspaces are collapsed, not returned to their projects.
+    expect(split.projects.map((project) => project.viewKey)).toEqual(["desk"]);
+    expect(split.projects[0]?.workspaces.map((placement) => placement.workspaceId)).toEqual([
+      "scratch",
+    ]);
+    expect([...split.workspaceEntriesByKey.keys()]).toEqual(["srv:scratch"]);
+  });
+
+  it("collapses nothing for an empty set or a set of Issues that are not on the board", () => {
+    const expanded = splitSidebarBoard({
+      board: feature,
+      projects,
+      workspaceEntriesByKey: entries,
+    });
+    const unrelated = splitSidebarBoard({
+      board: feature,
+      projects,
+      workspaceEntriesByKey: entries,
+      collapsedIssueIds: new Set(["DSK-99"]),
+    });
+
+    expect(unrelated.boardWorkspaces.map((entry) => entry.workspaceId)).toEqual(
+      expanded.boardWorkspaces.map((entry) => entry.workspaceId),
+    );
+    expect(unrelated.boardWorkspaces.every((entry) => entry.board?.collapsed === false)).toBe(true);
+  });
+
+  const unusableBoards: [string, Board | null][] = [
     ["no board", null],
     ["an empty board", board()],
     ["a board that matches no workspace", board(issue("DSK-99"))],
@@ -400,7 +625,9 @@ describe("splitSidebarBoard", () => {
       "a board with a parent cycle",
       board(issue("DSK-34", { parent: "DSK-36" }), issue("DSK-36", { parent: "DSK-34" })),
     ],
-  ])("returns the sidebar exactly as it was for %s", (_label, unusable) => {
+  ];
+
+  it.each(unusableBoards)("returns the sidebar exactly as it was for %s", (_label, unusable) => {
     const split = splitSidebarBoard({
       board: unusable,
       projects,
@@ -411,6 +638,22 @@ describe("splitSidebarBoard", () => {
     expect(split.projects).toBe(projects);
     expect(split.workspaceEntriesByKey).toBe(entries);
   });
+
+  it.each(unusableBoards)(
+    "returns the sidebar exactly as it was for %s even with stored collapsed Issues",
+    (_label, unusable) => {
+      const split = splitSidebarBoard({
+        board: unusable,
+        projects,
+        workspaceEntriesByKey: entries,
+        collapsedIssueIds: new Set(["DSK-34", "DSK-36"]),
+      });
+
+      expect(split.boardWorkspaces).toEqual([]);
+      expect(split.projects).toBe(projects);
+      expect(split.workspaceEntriesByKey).toBe(entries);
+    },
+  );
 
   it("returns the sidebar as it was after a valid board becomes unavailable", () => {
     const withBoard = splitSidebarBoard({

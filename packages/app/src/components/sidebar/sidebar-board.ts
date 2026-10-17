@@ -52,6 +52,9 @@ function bySortOrder(left: BoardIssue, right: BoardIssue): number {
  * returned. An Issue without a workspace adds no row and no level, so its matched descendants
  * stay visible one level up.
  *
+ * Each row names its matched ancestors, and the first row of an Issue that has a matched
+ * descendant row is marked `hasChildren`; `applyBoardCollapse` reads both. Rows come out expanded.
+ *
  * An invalid board (a repeated Issue id or a parent cycle) matches nothing.
  */
 export function projectSidebarBoard<T extends { name: string }>(input: {
@@ -85,23 +88,69 @@ export function projectSidebarBoard<T extends { name: string }>(input: {
   }
 
   const rows: SidebarBoardRow<T>[] = [];
-  const visit = (issue: BoardIssue, depth: number): void => {
+  // Returns whether the Issue or any descendant added a row.
+  const visit = (
+    issue: BoardIssue,
+    depth: number,
+    ancestorIssueIds: readonly string[],
+  ): boolean => {
     const matched = workspacesByIssueId.get(issue.id) ?? [];
+    const firstRowIndex = rows.length;
     for (const workspace of matched) {
       rows.push({
         workspace,
-        info: { issueId: issue.id, depth, status: issue.status, step: issue.run?.step ?? null },
+        info: {
+          issueId: issue.id,
+          depth,
+          ancestorIssueIds,
+          hasChildren: false,
+          collapsed: false,
+          status: issue.status,
+          step: issue.run?.step ?? null,
+        },
       });
     }
-    const childDepth = matched.length > 0 ? depth + 1 : depth;
+    const hasRows = matched.length > 0;
+    const childDepth = hasRows ? depth + 1 : depth;
+    const childAncestorIssueIds = hasRows ? [...ancestorIssueIds, issue.id] : ancestorIssueIds;
+    let hasDescendantRows = false;
     for (const child of [...(childrenByParentId.get(issue.id) ?? [])].sort(bySortOrder)) {
-      visit(child, childDepth);
+      if (visit(child, childDepth, childAncestorIssueIds)) hasDescendantRows = true;
     }
+    const firstRow = rows[firstRowIndex];
+    if (hasRows && hasDescendantRows && firstRow) {
+      rows[firstRowIndex] = { ...firstRow, info: { ...firstRow.info, hasChildren: true } };
+    }
+    return hasRows || hasDescendantRows;
   };
   for (const root of [...roots].sort(bySortOrder)) {
-    visit(root, 0);
+    visit(root, 0, []);
   }
   return rows;
+}
+
+const NO_COLLAPSED_ISSUE_IDS: ReadonlySet<string> = new Set();
+
+/**
+ * Hides the subtree of every collapsed Issue: a row goes when one of its matched ancestors is in
+ * the set, and a row of a collapsed Issue itself stays, marked `collapsed`. An Issue without a row
+ * is never an ancestor, so collapsing it hides nothing. An empty set returns `rows` itself.
+ */
+export function applyBoardCollapse<T>(
+  rows: readonly SidebarBoardRow<T>[],
+  collapsedIssueIds: ReadonlySet<string>,
+): readonly SidebarBoardRow<T>[] {
+  if (collapsedIssueIds.size === 0) return rows;
+  const visible: SidebarBoardRow<T>[] = [];
+  for (const row of rows) {
+    if (row.info.ancestorIssueIds.some((issueId) => collapsedIssueIds.has(issueId))) continue;
+    visible.push(
+      collapsedIssueIds.has(row.info.issueId)
+        ? { ...row, info: { ...row.info, collapsed: true } }
+        : row,
+    );
+  }
+  return visible;
 }
 
 const NO_BOARD_WORKSPACES: SidebarWorkspaceEntry[] = [];
@@ -124,11 +173,15 @@ export interface SidebarBoardSplit {
  * once. The stored project, workspace and pin orders are not touched (a project hidden here stays
  * in the stored order). The status grouping needs no such step: it groups `workspaceEntriesByKey`
  * and has no group without a row. With no usable board or no match it returns the inputs themselves, which is the sidebar as it was.
+ *
+ * `collapsedIssueIds` hides the rows under those Issues (`applyBoardCollapse`); a hidden row is
+ * still the board's, so it does not go back to the lists below.
  */
 export function splitSidebarBoard(input: {
   board: Board | null;
   projects: SidebarProjectEntry[];
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
+  collapsedIssueIds?: ReadonlySet<string>;
 }): SidebarBoardSplit {
   const rows = projectSidebarBoard({
     board: input.board,
@@ -148,7 +201,10 @@ export function splitSidebarBoard(input: {
   }
   const boardKeys = new Set(rows.map((row) => row.workspace.workspaceKey));
   const boardWorkspaces: SidebarWorkspaceEntry[] = [];
-  for (const { workspace, info } of rows) {
+  for (const { workspace, info } of applyBoardCollapse(
+    rows,
+    input.collapsedIssueIds ?? NO_COLLAPSED_ISSUE_IDS,
+  )) {
     boardWorkspaces.push({ ...workspace, board: info });
   }
   return {
