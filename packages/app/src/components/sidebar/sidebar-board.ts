@@ -8,6 +8,9 @@ import { ALL_BOARD_VIEW_KEY } from "@/stores/sidebar-collapsed-sections-store/st
 
 export { ALL_BOARD_VIEW_KEY };
 
+/** The view that lists what needs the user (the Needs-you section) alone. Not a team. */
+export const NEEDS_YOU_VIEW_KEY = "needs-you";
+
 const ISSUE_TITLE_TOKEN = /^([A-Z][A-Z0-9]*-\d+)(?=\s|$)/;
 
 export interface SidebarBoardRow<T> {
@@ -24,19 +27,31 @@ export function parseBoardIssueId(title: string): string | null {
 }
 
 export interface BoardView {
-  /** `ALL_BOARD_VIEW_KEY`, or a team exactly as the board file spells it (`DSK`). */
+  /** `ALL_BOARD_VIEW_KEY`, `NEEDS_YOU_VIEW_KEY`, or a team exactly as the board file spells it (`DSK`). */
   key: string;
-  /** The segment label: the team lowercased (`dsk`), or `all` for the caller to translate. */
+  /** The segment label: the team lowercased (`dsk`), or `all` / `needs-you` for the caller to translate. */
   label: string;
 }
 
 /**
  * The views the sidebar filter offers: one per distinct `team` in the order the board file first
- * names them, then `all`. No views for no board, an unusable board or a board without an Issue,
- * so the filter is not shown when there is nothing to filter.
+ * names them, then `all`, then the Needs-you view when `needsYou` is set. No team views for no
+ * board, an unusable board or a board without an Issue; with `needsYou` unset that leaves no views
+ * at all, so the filter is not shown when there is nothing to filter. With it set the views are
+ * `all` and Needs-you at least, because the Needs-you section needs no board file.
  */
-export function resolveBoardViews(board: Board | null): BoardView[] {
-  if (!board || board.issues.length === 0 || !indexIssues(board)) return [];
+export function resolveBoardViews(
+  board: Board | null,
+  options: { needsYou?: boolean } = {},
+): BoardView[] {
+  const needsYou: BoardView[] = options.needsYou
+    ? [{ key: NEEDS_YOU_VIEW_KEY, label: NEEDS_YOU_VIEW_KEY }]
+    : [];
+  if (!board || board.issues.length === 0 || !indexIssues(board)) {
+    return needsYou.length === 0
+      ? []
+      : [{ key: ALL_BOARD_VIEW_KEY, label: ALL_BOARD_VIEW_KEY }, ...needsYou];
+  }
   const teams: string[] = [];
   for (const issue of board.issues) {
     if (!teams.includes(issue.team)) teams.push(issue.team);
@@ -44,6 +59,7 @@ export function resolveBoardViews(board: Board | null): BoardView[] {
   return [
     ...teams.map((team) => ({ key: team, label: team.toLowerCase() })),
     { key: ALL_BOARD_VIEW_KEY, label: ALL_BOARD_VIEW_KEY },
+    ...needsYou,
   ];
 }
 
@@ -56,9 +72,27 @@ export function resolveBoardView(views: readonly BoardView[], storedKey: string)
   return views.some((view) => view.key === storedKey) ? storedKey : ALL_BOARD_VIEW_KEY;
 }
 
-/** The team a view filters by: null for `all`, else the view key as the file spells the team. */
+/**
+ * The team a view filters by: null for `all` and for the Needs-you view, else the view key as the
+ * file spells the team.
+ */
 export function boardViewTeam(viewKey: string): string | null {
-  return viewKey === ALL_BOARD_VIEW_KEY ? null : viewKey;
+  return viewKey === ALL_BOARD_VIEW_KEY || viewKey === NEEDS_YOU_VIEW_KEY ? null : viewKey;
+}
+
+export interface BoardViewLayout {
+  /** The team the board block is cut to; null keeps every team. */
+  team: string | null;
+  /** A team view: the list is the board block alone. */
+  boardOnly: boolean;
+  /** The Needs-you view: the list is the Needs-you section alone, with no workspace row at all. */
+  needsYouOnly: boolean;
+}
+
+/** What the view in effect does to the lists below the Needs-you section. */
+export function resolveBoardViewLayout(viewKey: string): BoardViewLayout {
+  const team = boardViewTeam(viewKey);
+  return { team, boardOnly: team !== null, needsYouOnly: viewKey === NEEDS_YOU_VIEW_KEY };
 }
 
 /** The Issue's status, and its run step when it has one: `In Progress · challenge`. */

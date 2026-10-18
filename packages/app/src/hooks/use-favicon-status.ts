@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getIsElectronRuntimeMac } from "@/constants/layout";
 import { useAggregatedAgents } from "./use-aggregated-agents";
 import { getDesktopHost } from "@/desktop/host";
-import { useWorkspaceStatusesForBadges } from "@/stores/session-store-hooks";
-import { deriveMacDockBadgeCountFromWorkspaceStatuses } from "@/utils/desktop-badge-state";
+import { useNeedsYou } from "@/components/sidebar/needs-you/use-needs-you";
+import { deriveMacDockBadgeCount } from "@/utils/desktop-badge-state";
 import { isNative } from "@/constants/platform";
 
 type FaviconStatus = "none" | "running" | "attention";
@@ -95,7 +95,7 @@ async function updateMacDockBadge(count?: number) {
 
 export function useFaviconStatus() {
   const { agents } = useAggregatedAgents({ demand: !isNative });
-  const workspaceStatuses = useWorkspaceStatusesForBadges();
+  const { count: needsYouCount } = useNeedsYou();
   const [colorScheme, setColorScheme] = useState<ColorScheme>(getSystemColorScheme);
   const lastDockBadgeCountRef = useRef<number | undefined>(undefined);
 
@@ -119,10 +119,10 @@ export function useFaviconStatus() {
     const status = deriveFaviconStatus(agents);
     updateFavicon(status, colorScheme);
 
-    const dockBadgeCount = deriveMacDockBadgeCountFromWorkspaceStatuses(workspaceStatuses);
+    const dockBadgeCount = deriveMacDockBadgeCount(needsYouCount);
     if (dockBadgeCount !== lastDockBadgeCountRef.current) {
       lastDockBadgeCountRef.current = dockBadgeCount;
       void updateMacDockBadge(dockBadgeCount);
     }
-  }, [agents, colorScheme, workspaceStatuses]);
+  }, [agents, colorScheme, needsYouCount]);
 }
