@@ -20,3 +20,52 @@ export function reconcileFirstSeen(
   }
   return changed ? next : previous;
 }
+
+/** The shared first-seen record, reconciled to the keys of every hook that reads it. */
+export interface FirstSeenStore {
+  subscribe(listener: () => void): () => void;
+  get(): ReadonlyMap<string, number>;
+  /** Sets the keys `owner` sees now. */
+  record(owner: symbol, keys: readonly string[]): void;
+  /** Forgets `owner`'s keys when it unmounts. */
+  release(owner: symbol): void;
+}
+
+/**
+ * Each mounted user of the record (the section, the badge) may see a different set of rows for a
+ * moment, since each reads the board on its own. Reconciling to one user's keys would drop the
+ * other's and the two would rewrite the record in turn forever, so the record follows the union
+ * of every owner's keys: a key is dropped only once no owner sees it.
+ */
+export function createFirstSeenStore(clock: () => number = Date.now): FirstSeenStore {
+  let seen: ReadonlyMap<string, number> = new Map();
+  const keysByOwner = new Map<symbol, readonly string[]>();
+  const listeners = new Set<() => void>();
+
+  function reconcile(): void {
+    const keys: string[] = [];
+    for (const ownerKeys of keysByOwner.values()) keys.push(...ownerKeys);
+    const next = reconcileFirstSeen(seen, keys, clock());
+    if (next === seen) return;
+    seen = next;
+    for (const listener of listeners) listener();
+  }
+
+  return {
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    get: () => seen,
+    record(owner, keys) {
+      keysByOwner.set(owner, keys);
+      reconcile();
+    },
+    release(owner) {
+      if (!keysByOwner.delete(owner)) return;
+      reconcile();
+    },
+  };
+}

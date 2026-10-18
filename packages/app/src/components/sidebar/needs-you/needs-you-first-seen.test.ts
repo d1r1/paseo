@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcileFirstSeen } from "./needs-you-first-seen";
+import { createFirstSeenStore, reconcileFirstSeen } from "./needs-you-first-seen";
 
 describe("reconcileFirstSeen", () => {
   it("records a new key at the time it was first seen", () => {
@@ -37,5 +37,51 @@ describe("reconcileFirstSeen", () => {
     const seen = new Map([["a", 100]]);
     expect(reconcileFirstSeen(seen, ["a"], 500)).toBe(seen);
     expect(reconcileFirstSeen(seen, ["a", "a"], 500)).toBe(seen);
+  });
+});
+
+describe("createFirstSeenStore", () => {
+  it("keeps the keys of every owner, so two owners that see different rows settle", () => {
+    let now = 100;
+    const store = createFirstSeenStore(() => now);
+    let notified = 0;
+    store.subscribe(() => {
+      notified += 1;
+    });
+    const section = Symbol("section");
+    const badge = Symbol("badge");
+
+    store.record(section, ["perm:a", "run:DSK-1"]);
+    now = 200;
+    store.record(badge, ["perm:a"]);
+    const settled = store.get();
+    store.record(section, ["perm:a", "run:DSK-1"]);
+    store.record(badge, ["perm:a"]);
+
+    expect(settled).toEqual(
+      new Map([
+        ["perm:a", 100],
+        ["run:DSK-1", 100],
+      ]),
+    );
+    expect(store.get()).toBe(settled);
+    expect(notified).toBe(1);
+  });
+
+  it("drops a key once no owner sees it", () => {
+    let now = 100;
+    const store = createFirstSeenStore(() => now);
+    const section = Symbol("section");
+    const badge = Symbol("badge");
+    store.record(section, ["a", "b"]);
+    store.record(badge, ["a"]);
+
+    now = 200;
+    store.record(section, ["a"]);
+    expect(store.get()).toEqual(new Map([["a", 100]]));
+
+    store.release(section);
+    store.release(badge);
+    expect(store.get().size).toBe(0);
   });
 });
