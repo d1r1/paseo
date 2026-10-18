@@ -1197,6 +1197,17 @@ export const en = {
     board: {
       views: {
         all: "all",
+        needsYou: "needs you",
+      },
+    },
+    needsYou: {
+      title: "Needs you",
+      empty: "Nothing is waiting for you",
+      answerFailed: "Could not send the answer",
+      source: {
+        permission: "Permission",
+        label: "Waiting for you",
+        run: "Run waiting for you",
       },
     },
     filterEmpty: {

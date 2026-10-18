@@ -28,13 +28,14 @@ import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
 import {
-  boardViewTeam,
   resolveBoardView,
+  resolveBoardViewLayout,
   resolveBoardViews,
   splitSidebarBoard,
   type BoardView,
 } from "./sidebar-board";
 import { useSidebarBoard } from "./use-sidebar-board";
+import { NEEDS_YOU_ENABLED } from "./needs-you/use-needs-you";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
@@ -63,6 +64,12 @@ interface SidebarModel extends SidebarWorkspacesListResult {
    */
   boardOnly: boolean;
   /**
+   * The Needs-you view is on: the Needs-you section is the whole list. Like `boardOnly`, it builds
+   * `pinnedGroups`, `workspaceGroups` and `shortcutModel` over no workspace and leaves
+   * `boardWorkspaces` empty.
+   */
+  needsYouOnly: boolean;
+  /**
    * Every project the sidebar could show, before any filter narrows it.
    *
    * `projects` is the FILTERED list. A surface that offers a filter picker must read this one, or
@@ -90,6 +97,7 @@ const SidebarModelContext = createContext<SidebarModel | null>(null);
 
 const NO_PROJECTS: SidebarProjectEntry[] = [];
 const NO_WORKSPACE_ENTRIES: ReadonlyMap<string, SidebarWorkspaceEntry> = new Map();
+const NO_BOARD_WORKSPACES: SidebarWorkspaceEntry[] = [];
 
 export function SidebarModelProvider({
   active,
@@ -196,12 +204,14 @@ export function SidebarModelProvider({
   // Collapse is applied here, before the projection, so the keyboard shortcut numbers skip a
   // hidden row as they skip a collapsed project's.
   const board = useSidebarBoard({ enabled: active !== false });
-  const boardViews = useMemo(() => resolveBoardViews(board), [board]);
+  const boardViews = useMemo(
+    () => resolveBoardViews(board, { needsYou: NEEDS_YOU_ENABLED }),
+    [board],
+  );
   // The stored view is resolved, never rewritten: a team the file no longer carries falls back to
   // `all` here and applies again when a file carries it, as `resolveActiveProjectFilters` does.
   const boardView = resolveBoardView(boardViews, storedBoardView);
-  const boardTeam = boardViewTeam(boardView);
-  const boardOnly = boardTeam !== null;
+  const { team: boardTeam, boardOnly, needsYouOnly } = resolveBoardViewLayout(boardView);
   const collapsedBoardIssueIds = collapsedBoardIssueIdsForView(
     { collapsedBoardIssueIdsByView },
     boardView,
@@ -211,7 +221,7 @@ export function SidebarModelProvider({
     [boardView, toggleBoardIssueCollapsedInView],
   );
   const {
-    boardWorkspaces,
+    boardWorkspaces: splitBoardWorkspaces,
     projects: unboardedProjects,
     workspaceEntriesByKey: unboardedWorkspaceEntriesByKey,
   } = useMemo(
@@ -226,9 +236,12 @@ export function SidebarModelProvider({
     [board, boardTeam, collapsedBoardIssueIds, filteredProjects, filteredWorkspaceEntriesByKey],
   );
   // A team view lists the board block alone: the lists below it are built over nothing, so the
-  // Pinned section, the groups and the unmatched workspaces are not shown and not numbered.
-  const listedProjects = boardOnly ? NO_PROJECTS : unboardedProjects;
-  const listedWorkspaceEntriesByKey = boardOnly
+  // Pinned section, the groups and the unmatched workspaces are not shown and not numbered. The
+  // Needs-you view lists nothing of the workspaces at all, the board block included.
+  const listsNothingBelow = boardOnly || needsYouOnly;
+  const boardWorkspaces = needsYouOnly ? NO_BOARD_WORKSPACES : splitBoardWorkspaces;
+  const listedProjects = listsNothingBelow ? NO_PROJECTS : unboardedProjects;
+  const listedWorkspaceEntriesByKey = listsNothingBelow
     ? NO_WORKSPACE_ENTRIES
     : unboardedWorkspaceEntriesByKey;
   const pinnedKeys = usePinnedSidebarKeys(listedProjects);
@@ -276,6 +289,7 @@ export function SidebarModelProvider({
       boardView,
       setBoardView,
       boardOnly,
+      needsYouOnly,
       groupMode,
       workspaceGroups: projection.workspaceGroups,
       projectIconTargets: projection.projectIconTargets,
@@ -300,6 +314,7 @@ export function SidebarModelProvider({
       boardView,
       setBoardView,
       boardOnly,
+      needsYouOnly,
     ],
   );
 

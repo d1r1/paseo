@@ -10,9 +10,11 @@ import {
   applyBoardCollapse,
   boardViewTeam,
   formatBoardCaption,
+  NEEDS_YOU_VIEW_KEY,
   parseBoardIssueId,
   projectSidebarBoard,
   resolveBoardView,
+  resolveBoardViewLayout,
   resolveBoardViews,
   splitSidebarBoard,
   type SidebarBoardRow,
@@ -107,6 +109,34 @@ describe("resolveBoardViews", () => {
   ])("offers no view for %s", (_label, unusable) => {
     expect(resolveBoardViews(unusable)).toEqual([]);
   });
+
+  it("is as before when needsYou is omitted or false", () => {
+    const withTeams = board(issue("DSK-1"), issue("FLU-1", { team: "FLU" }));
+    expect(resolveBoardViews(withTeams, {})).toEqual(resolveBoardViews(withTeams));
+    expect(resolveBoardViews(withTeams, { needsYou: false })).toEqual(resolveBoardViews(withTeams));
+    expect(resolveBoardViews(null, { needsYou: false })).toEqual([]);
+  });
+
+  it("appends the Needs-you view after the team views and all", () => {
+    const withTeams = board(issue("DSK-1"), issue("FLU-1", { team: "FLU" }));
+    expect(resolveBoardViews(withTeams, { needsYou: true })).toEqual([
+      { key: "DSK", label: "dsk" },
+      { key: "FLU", label: "flu" },
+      { key: ALL_BOARD_VIEW_KEY, label: ALL_BOARD_VIEW_KEY },
+      { key: NEEDS_YOU_VIEW_KEY, label: NEEDS_YOU_VIEW_KEY },
+    ]);
+  });
+
+  it.each([
+    ["no board", null],
+    ["an empty board", board()],
+    ["a board with a repeated id", board(issue("DSK-1"), issue("DSK-1"))],
+  ])("offers all and Needs-you for %s", (_label, unusable) => {
+    expect(resolveBoardViews(unusable, { needsYou: true })).toEqual([
+      { key: ALL_BOARD_VIEW_KEY, label: ALL_BOARD_VIEW_KEY },
+      { key: NEEDS_YOU_VIEW_KEY, label: NEEDS_YOU_VIEW_KEY },
+    ]);
+  });
 });
 
 describe("resolveBoardView", () => {
@@ -127,6 +157,43 @@ describe("resolveBoardView", () => {
   it("names the team a view filters by, and none for all", () => {
     expect(boardViewTeam("DSK")).toBe("DSK");
     expect(boardViewTeam(ALL_BOARD_VIEW_KEY)).toBeNull();
+  });
+
+  it("is not a team: the Needs-you view filters by none", () => {
+    expect(boardViewTeam(NEEDS_YOU_VIEW_KEY)).toBeNull();
+  });
+
+  it("keeps a stored Needs-you view where the views carry it, else resolves it to all", () => {
+    const withNeedsYou = resolveBoardViews(board(issue("DSK-1")), { needsYou: true });
+    expect(resolveBoardView(withNeedsYou, NEEDS_YOU_VIEW_KEY)).toBe(NEEDS_YOU_VIEW_KEY);
+    expect(resolveBoardView(views, NEEDS_YOU_VIEW_KEY)).toBe(ALL_BOARD_VIEW_KEY);
+    expect(resolveBoardView([], NEEDS_YOU_VIEW_KEY)).toBe(ALL_BOARD_VIEW_KEY);
+  });
+});
+
+describe("resolveBoardViewLayout", () => {
+  it("keeps every list for all", () => {
+    expect(resolveBoardViewLayout(ALL_BOARD_VIEW_KEY)).toEqual({
+      team: null,
+      boardOnly: false,
+      needsYouOnly: false,
+    });
+  });
+
+  it("cuts a team view to the board block alone", () => {
+    expect(resolveBoardViewLayout("DSK")).toEqual({
+      team: "DSK",
+      boardOnly: true,
+      needsYouOnly: false,
+    });
+  });
+
+  it("makes the Needs-you view the Needs-you section alone, not a board team", () => {
+    expect(resolveBoardViewLayout(NEEDS_YOU_VIEW_KEY)).toEqual({
+      team: null,
+      boardOnly: false,
+      needsYouOnly: true,
+    });
   });
 });
 
