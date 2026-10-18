@@ -4,7 +4,7 @@ import { useSidebarBoard } from "@/components/sidebar/use-sidebar-board";
 import { getHostRuntimeStore, isHostRuntimeConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent, type WorkspaceDescriptor } from "@/stores/session-store";
 import type { PendingPermission } from "@/types/shared";
-import { reconcileFirstSeen } from "./needs-you-first-seen";
+import { createFirstSeenStore } from "./needs-you-first-seen";
 import {
   buildNeedsYouRows,
   type NeedsYouAgent,
@@ -20,28 +20,8 @@ export const NEEDS_YOU_ENABLED = true;
 export const NEEDS_YOU_TICK_INTERVAL_MS = 30_000;
 
 // The client's first-seen record outlives any one mounted section or badge, so collapsing the
-// sidebar does not restart the ages. Every user of the hook reconciles the same map to the same
-// keys, so the later ones find nothing to change.
-let firstSeen: ReadonlyMap<string, number> = new Map();
-const firstSeenListeners = new Set<() => void>();
-
-function subscribeFirstSeen(listener: () => void): () => void {
-  firstSeenListeners.add(listener);
-  return () => {
-    firstSeenListeners.delete(listener);
-  };
-}
-
-function getFirstSeen(): ReadonlyMap<string, number> {
-  return firstSeen;
-}
-
-function recordFirstSeen(keys: readonly string[]): void {
-  const next = reconcileFirstSeen(firstSeen, keys, Date.now());
-  if (next === firstSeen) return;
-  firstSeen = next;
-  for (const listener of firstSeenListeners) listener();
-}
+// sidebar does not restart the ages.
+const firstSeenStore = createFirstSeenStore();
 
 function useNow(): number {
   const [now, setNow] = useState(() => Date.now());
@@ -106,7 +86,11 @@ export function useNeedsYou(): NeedsYouState {
     }),
   );
   const board = useSidebarBoard({ enabled: true });
-  const seenAt = useSyncExternalStore(subscribeFirstSeen, getFirstSeen, getFirstSeen);
+  const seenAt = useSyncExternalStore(
+    firstSeenStore.subscribe,
+    firstSeenStore.get,
+    firstSeenStore.get,
+  );
   const now = useNow();
 
   const inputs = useMemo(() => {
@@ -141,9 +125,11 @@ export function useNeedsYou(): NeedsYouState {
     [inputs, board, seenAt, now],
   );
   const keys = useMemo(() => result.rows.map((row) => row.key), [result.rows]);
+  const [owner] = useState(() => Symbol("needs-you"));
   useEffect(() => {
-    recordFirstSeen(keys);
-  }, [keys]);
+    firstSeenStore.record(owner, keys);
+  }, [owner, keys]);
+  useEffect(() => () => firstSeenStore.release(owner), [owner]);
 
   return useMemo(() => ({ ...result, now }), [result, now]);
 }
