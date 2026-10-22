@@ -39,6 +39,7 @@ import { NEEDS_YOU_ENABLED } from "./needs-you/use-needs-you";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
+import { applyStateFilter } from "./sidebar-state-filter";
 import {
   hasAuthoritativeWorkspaceLabelCatalog,
   useWorkspaceLabelProjection,
@@ -111,6 +112,7 @@ export function SidebarModelProvider({
   const groupMode = useSidebarViewStore((state) => state.groupMode);
   const labelFilter = useSidebarViewStore((state) => state.labelFilter);
   const projectFilters = useSidebarViewStore((state) => state.projectFilters);
+  const stateFilter = useSidebarViewStore((state) => state.stateFilter);
   const storedBoardView = useSidebarViewStore((state) => state.boardView);
   const setBoardView = useSidebarViewStore((state) => state.setBoardView);
   const reconcileLabelFilter = useSidebarViewStore((state) => state.reconcileLabelFilter);
@@ -156,12 +158,16 @@ export function SidebarModelProvider({
   // anything; the label filter reads `labels`, which only exists on an entry. Hydration opens a
   // live session-store subscription over every workspace on every visible host, so widening this
   // for a filter that does not need it costs a retained-but-inactive sidebar real work.
-  const needsWorkspaceEntries = groupMode !== "project" || hasActiveLabelFilter;
+  //
+  // The state filter reads `statusBucket`, which is the same kind of entry-only field.
+  const hasActiveStateFilter = stateFilter.length > 0;
+  const needsWorkspaceEntries =
+    groupMode !== "project" || hasActiveLabelFilter || hasActiveStateFilter;
   const workspaceEntriesByKey = useSidebarWorkspaceEntries(
     list.workspacePlacements,
     active !== false || needsWorkspaceEntries,
   );
-  const filteredWorkspaceEntriesByKey = useMemo(() => {
+  const labelFilteredEntriesByKey = useMemo(() => {
     const byProject = filterWorkspacesByProjects({
       workspaces: [...workspaceEntriesByKey.values()],
       projectFilters: resolvedProjectFilters,
@@ -170,14 +176,14 @@ export function SidebarModelProvider({
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
   }, [labelFilter, resolvedProjectFilters, workspaceEntriesByKey]);
   const visibleWorkspaceKeys = useMemo(
-    () => new Set(filteredWorkspaceEntriesByKey.keys()),
-    [filteredWorkspaceEntriesByKey],
+    () => new Set(labelFilteredEntriesByKey.keys()),
+    [labelFilteredEntriesByKey],
   );
   // The two filters prune differently on purpose. The project filter is a membership test on the
   // project itself, so a project you filtered TO survives even with no workspaces — it still owns
   // a header row you can create your first workspace under. The label filter can only ask about
   // workspaces, so a project it empties has nothing left to show.
-  const filteredProjects = useMemo(() => {
+  const labelFilteredProjects = useMemo(() => {
     let projects = list.projects;
     if (hasActiveProjectFilter) {
       const included = new Set(resolvedProjectFilters);
@@ -199,6 +205,18 @@ export function SidebarModelProvider({
     list.projects,
     visibleWorkspaceKeys,
   ]);
+  // The state filter narrows last and, like the label filter, can only ask about workspaces, so
+  // it drops a project it empties. It runs over the same lists in every group mode.
+  const { projects: filteredProjects, workspaceEntriesByKey: filteredWorkspaceEntriesByKey } =
+    useMemo(
+      () =>
+        applyStateFilter({
+          projects: labelFilteredProjects,
+          workspaceEntriesByKey: labelFilteredEntriesByKey,
+          states: stateFilter,
+        }),
+      [labelFilteredEntriesByKey, labelFilteredProjects, stateFilter],
+    );
   // The board only reorders and annotates: the stored project, workspace and pin orders are read
   // and written as before, and a workspace the board takes is just left out of the lists below it.
   // Collapse is applied here, before the projection, so the keyboard shortcut numbers skip a

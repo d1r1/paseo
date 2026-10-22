@@ -1211,6 +1211,10 @@ export const ptBR: TranslationResources = {
         label: "Projeto",
         all: "Todos os projetos",
       },
+      stateFilter: {
+        label: "Estado",
+        all: "Todos os estados",
+      },
     },
     board: {
       views: {

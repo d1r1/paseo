@@ -1192,6 +1192,10 @@ export const ko: TranslationResources = {
         label: "프로젝트",
         all: "모든 프로젝트",
       },
+      stateFilter: {
+        label: "상태",
+        all: "모든 상태",
+      },
     },
     board: {
       views: {
