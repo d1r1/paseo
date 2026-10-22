@@ -1177,6 +1177,10 @@ export const zhCN: TranslationResources = {
         label: "项目",
         all: "所有项目",
       },
+      stateFilter: {
+        label: "状态",
+        all: "所有状态",
+      },
     },
     board: {
       views: {

@@ -12,8 +12,10 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   Captions,
   Circle,
+  CircleAlert,
   CircleCheck,
   CircleDashed,
+  CircleX,
   Clock,
   Diff,
   EyeOff,
@@ -21,6 +23,7 @@ import {
   GitBranch,
   GitPullRequest,
   Globe,
+  LoaderCircle,
   Server,
   Settings2,
   Tag,
@@ -51,6 +54,9 @@ import {
   type SidebarGroupMode,
 } from "@/stores/sidebar-view-store";
 import { workspaceLabelKey, type WorkspaceLabelColor } from "@getpaseo/protocol/workspace-labels";
+import { getStatusBucketLabel } from "@/hooks/sidebar-status-view-model";
+import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import { SIDEBAR_STATE_FILTER_BUCKETS } from "@/components/sidebar/sidebar-state-filter";
 import type { WorkspaceTitleSource } from "@/hooks/use-settings";
 import { SIDEBAR_CHECKS_DISPLAYS, type SidebarChecksDisplay } from "./checks-display";
 import { useSidebarDisplayPreferences, type SidebarTrailingChoice } from "./model";
@@ -118,6 +124,16 @@ const CHECKS_DISPLAY_ICONS: Record<SidebarChecksDisplay, OptionIcon> = {
 const TRAILING_ICONS: Record<SidebarTrailingChoice, OptionIcon> = {
   diff: withUnistyles(Diff),
   timestamp: withUnistyles(Clock),
+};
+
+// The state page names a bucket by the group header it gives the status mode, with the mark that
+// header's dot stands for, so the two read as the same thing.
+const STATE_ICONS: Record<SidebarStateBucket, OptionIcon> = {
+  needs_input: withUnistyles(CircleAlert),
+  failed: withUnistyles(CircleX),
+  attention: ThemedCircleCheck,
+  running: withUnistyles(LoaderCircle),
+  done: ThemedCircle,
 };
 
 const GROUPING_MODES: readonly SidebarGroupMode[] = ["project", "status"];
@@ -269,6 +285,11 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
         ),
       });
     }
+    definitions.push({
+      id: "stateFilter",
+      title: t("sidebar.display.stateFilter.label"),
+      content: <StateFilterPage preferences={preferences} />,
+    });
     return definitions;
   }, [
     t,
@@ -359,6 +380,16 @@ export function SidebarDisplayPreferencesMenu(): ReactElement {
               </MenuSubTrigger>
             </>
           ) : null}
+          {/* A state is always there to filter by, so the row never goes away. With none of the
+            rows above it showing, it still needs the separator that opens the filter block. */}
+          {showHostFilter || showProjectFilter || showLabelFilter ? null : <MenuSeparator />}
+          <MenuSubTrigger
+            id="stateFilter"
+            indicator={preferences.stateFilter.length > 0}
+            testID="sidebar-display-state-filter"
+          >
+            {t("sidebar.display.stateFilter.label")}
+          </MenuSubTrigger>
         </MenuSurface>
       </MenuRoot>
       <WorkspaceLabelManagerModal visible={managerOpen} onClose={closeManager} />
@@ -684,6 +715,41 @@ function ProjectFilterItem({
     >
       {label}
     </MenuItem>
+  );
+}
+
+/**
+ * The five buckets a workspace's aggregated status can take, one row each.
+ *
+ * A workspace has exactly one bucket, so this is a plain allowlist like the host and project
+ * pages, and it is not narrowed by what the sidebar currently holds: a bucket with no workspace in
+ * it still shows, because the filter would otherwise lose the row that undoes it.
+ */
+function StateFilterPage({ preferences }: { preferences: Preferences }): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      <MenuItem
+        selected={preferences.stateFilter.length === 0}
+        closeOnSelect={false}
+        onSelect={preferences.clearStateFilter}
+        testID="sidebar-state-filter-all"
+      >
+        {t("sidebar.display.stateFilter.all")}
+      </MenuItem>
+      {SIDEBAR_STATE_FILTER_BUCKETS.map((bucket) => (
+        <OptionItem
+          key={bucket}
+          value={bucket}
+          icon={STATE_ICONS[bucket]}
+          label={getStatusBucketLabel(bucket, t)}
+          selected={preferences.stateFilter.includes(bucket)}
+          closeOnSelect={false}
+          onSelect={preferences.toggleStateFilter}
+          testID={`sidebar-state-filter-${bucket}`}
+        />
+      ))}
+    </>
   );
 }
 

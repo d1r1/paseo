@@ -74,6 +74,12 @@ export function shouldClearAgentAttention(input: ShouldClearAgentAttentionInput)
   if (input.attentionReason === "permission") {
     return false;
   }
+  // A finished agent stays in attention until the user answers it: opening, focusing or leaving
+  // its tab is reading, not answering. Archiving clears it on the daemon, and the sidebar row
+  // menu's "mark read" goes through `workspace.clear_attention`, so neither passes through here.
+  if (input.attentionReason === "finished" && input.trigger !== "prompt-send") {
+    return false;
+  }
   if (input.trigger === "focus-entry" && input.hasDeferredFocusEntryClear === true) {
     return false;
   }

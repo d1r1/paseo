@@ -1198,6 +1198,10 @@ export const ja: TranslationResources = {
         label: "プロジェクト",
         all: "すべてのプロジェクト",
       },
+      stateFilter: {
+        label: "状態",
+        all: "すべての状態",
+      },
     },
     board: {
       views: {

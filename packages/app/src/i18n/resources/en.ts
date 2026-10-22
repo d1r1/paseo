@@ -1193,6 +1193,10 @@ export const en = {
         label: "Project",
         all: "All projects",
       },
+      stateFilter: {
+        label: "State",
+        all: "All states",
+      },
     },
     board: {
       views: {

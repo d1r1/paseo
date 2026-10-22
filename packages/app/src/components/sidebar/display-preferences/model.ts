@@ -9,6 +9,7 @@ import {
   type SidebarGroupMode,
   type SidebarLabelFilter,
 } from "@/stores/sidebar-view-store";
+import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { DEFAULT_SIDEBAR_CHECKS_DISPLAY, type SidebarChecksDisplay } from "./checks-display";
 import { DEFAULT_SIDEBAR_ROW_ITEMS, type SidebarRowItem, type SidebarRowItems } from "./row-items";
 
@@ -37,6 +38,9 @@ export interface SidebarDisplayPreferences {
   labelFilter: SidebarLabelFilter;
   toggleLabelFilter: (name: string) => void;
   clearLabelFilter: () => void;
+  stateFilter: readonly SidebarStateBucket[];
+  toggleStateFilter: (bucket: SidebarStateBucket) => void;
+  clearStateFilter: () => void;
 }
 
 /**
@@ -59,6 +63,9 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
   const labelFilter = useSidebarViewStore((state) => state.labelFilter);
   const toggleLabelFilter = useSidebarViewStore((state) => state.toggleLabelFilter);
   const clearLabelFilter = useSidebarViewStore((state) => state.clearLabelFilter);
+  const stateFilter = useSidebarViewStore((state) => state.stateFilter);
+  const toggleStateFilter = useSidebarViewStore((state) => state.toggleStateFilter);
+  const clearStateFilter = useSidebarViewStore((state) => state.clearStateFilter);
 
   const {
     settings: {
@@ -123,6 +130,9 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       labelFilter,
       toggleLabelFilter,
       clearLabelFilter,
+      stateFilter,
+      toggleStateFilter,
+      clearStateFilter,
     }),
     [
       grouping,
@@ -144,6 +154,9 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       labelFilter,
       toggleLabelFilter,
       clearLabelFilter,
+      stateFilter,
+      toggleStateFilter,
+      clearStateFilter,
     ],
   );
 }

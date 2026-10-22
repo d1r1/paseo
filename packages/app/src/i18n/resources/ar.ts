@@ -1185,6 +1185,10 @@ export const ar: TranslationResources = {
         label: "المشروع",
         all: "كل المشاريع",
       },
+      stateFilter: {
+        label: "الحالة",
+        all: "كل الحالات",
+      },
     },
     board: {
       views: {

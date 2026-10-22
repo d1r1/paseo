@@ -1202,6 +1202,10 @@ export const ru: TranslationResources = {
         label: "Проект",
         all: "Все проекты",
       },
+      stateFilter: {
+        label: "Состояние",
+        all: "Все состояния",
+      },
     },
     board: {
       views: {

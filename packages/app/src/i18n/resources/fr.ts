@@ -1212,6 +1212,10 @@ export const fr: TranslationResources = {
         label: "Projet",
         all: "Tous les projets",
       },
+      stateFilter: {
+        label: "État",
+        all: "Tous les états",
+      },
     },
     board: {
       views: {

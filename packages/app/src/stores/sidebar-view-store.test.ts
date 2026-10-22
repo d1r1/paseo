@@ -36,6 +36,7 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -89,6 +90,7 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -104,6 +106,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a"],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -119,6 +122,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a", "host-b"],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -230,6 +234,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a"],
       projectFilters: ["project-a", "project-b"],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -240,6 +245,7 @@ describe("sidebar view store", () => {
       hostFilters: [],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "all",
     });
   });
@@ -268,6 +274,7 @@ describe("sidebar view store", () => {
       hostFilters: ["host-a"],
       projectFilters: [],
       labelFilter: { labels: [] },
+      stateFilter: [],
       boardView: "FLU",
     });
   });
@@ -321,5 +328,146 @@ describe("sidebar view store", () => {
       }),
     );
     expect(storage.reads).toEqual(["sidebar-view"]);
+  });
+});
+
+// The state filter is an allowlist over the five sidebar buckets, stored like `hostFilters`:
+// empty means every state, and the filter belongs to the view rather than to a group mode.
+describe("sidebar view store state filter", () => {
+  beforeEach(() => {
+    useSidebarViewStore.setState({
+      groupMode: "project",
+      hostFilters: [],
+      projectFilters: [],
+      labelFilter: { labels: [] },
+      stateFilter: [],
+      boardView: "all",
+    });
+  });
+
+  it("starts empty, which means every state", () => {
+    expect(useSidebarViewStore.getInitialState().stateFilter).toEqual([]);
+  });
+
+  it("toggles several states into and out of the allowlist and clears it", () => {
+    const store = useSidebarViewStore.getState();
+    expect(typeof store.toggleStateFilter).toBe("function");
+    expect(typeof store.clearStateFilter).toBe("function");
+
+    store.toggleStateFilter("attention");
+    store.toggleStateFilter("needs_input");
+    expect(useSidebarViewStore.getState().stateFilter).toEqual(["attention", "needs_input"]);
+
+    store.toggleStateFilter("attention");
+    expect(useSidebarViewStore.getState().stateFilter).toEqual(["needs_input"]);
+
+    store.clearStateFilter();
+    expect(useSidebarViewStore.getState().stateFilter).toEqual([]);
+  });
+
+  it("accepts each of the five buckets", () => {
+    const store = useSidebarViewStore.getState();
+    expect(typeof store.toggleStateFilter).toBe("function");
+
+    for (const bucket of ["needs_input", "failed", "attention", "running", "done"] as const) {
+      store.toggleStateFilter(bucket);
+    }
+
+    expect(useSidebarViewStore.getState().stateFilter).toEqual([
+      "needs_input",
+      "failed",
+      "attention",
+      "running",
+      "done",
+    ]);
+  });
+
+  it("keeps the state filter when the group mode changes, in both directions", () => {
+    useSidebarViewStore.setState({ stateFilter: ["running"] });
+
+    useSidebarViewStore.getState().setGroupMode("status");
+    expect(useSidebarViewStore.getState().stateFilter).toEqual(["running"]);
+
+    useSidebarViewStore.getState().setGroupMode("project");
+    expect(useSidebarViewStore.getState().stateFilter).toEqual(["running"]);
+  });
+
+  it("leaves the other facets alone when the state filter is cleared", () => {
+    useSidebarViewStore.setState({
+      groupMode: "status",
+      hostFilters: ["host-a"],
+      projectFilters: ["project-a"],
+      labelFilter: { labels: ["urgent"] },
+      stateFilter: ["done"],
+    });
+    expect(typeof useSidebarViewStore.getState().clearStateFilter).toBe("function");
+
+    useSidebarViewStore.getState().clearStateFilter();
+
+    expect(useSidebarViewStore.getState()).toMatchObject({
+      groupMode: "status",
+      hostFilters: ["host-a"],
+      projectFilters: ["project-a"],
+      labelFilter: { labels: ["urgent"] },
+      stateFilter: [],
+    });
+  });
+
+  it("keeps the state filter when the label filter is cleared", () => {
+    useSidebarViewStore.setState({ labelFilter: { labels: ["urgent"] }, stateFilter: ["done"] });
+
+    useSidebarViewStore.getState().clearLabelFilter();
+
+    expect(useSidebarViewStore.getState().stateFilter).toEqual(["done"]);
+  });
+
+  it("persists the state filter, under a bumped store version", () => {
+    useSidebarViewStore.setState({ stateFilter: ["failed", "attention"] });
+    const options = useSidebarViewStore.persist.getOptions();
+
+    expect(options.version).toBe(7);
+    expect(options.partialize?.(useSidebarViewStore.getState())).toMatchObject({
+      stateFilter: ["failed", "attention"],
+    });
+  });
+
+  it("carries a persisted state filter through the version migration", () => {
+    expect(
+      migrateSidebarViewState({
+        groupMode: "status",
+        hostFilters: ["host-a"],
+        stateFilter: ["needs_input", "attention"],
+      }),
+    ).toEqual({
+      groupMode: "status",
+      hostFilters: ["host-a"],
+      projectFilters: [],
+      labelFilter: { labels: [] },
+      stateFilter: ["needs_input", "attention"],
+      boardView: "all",
+    });
+  });
+
+  it("migrates v6 state, which has no state filter, to every state", () => {
+    expect(
+      migrateSidebarViewState({
+        groupMode: "project",
+        hostFilters: [],
+        projectFilters: ["project-a"],
+        labelFilter: { labels: ["urgent"] },
+        boardView: "DSK",
+      }).stateFilter,
+    ).toEqual([]);
+  });
+
+  it("defaults the state filter to every state on every migration branch", () => {
+    expect(migrateSidebarViewState(undefined).stateFilter).toEqual([]);
+    expect(
+      migrateSidebarViewState({ groupModeByServerId: { "host-a": "status" } }).stateFilter,
+    ).toEqual([]);
+  });
+
+  it("never keeps a state the five buckets do not name", () => {
+    expect(migrateSidebarViewState({ stateFilter: ["bogus"] }).stateFilter).toEqual([]);
   });
 });

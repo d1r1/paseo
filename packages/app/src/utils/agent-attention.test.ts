@@ -39,7 +39,33 @@ function createAgent(input: Partial<Agent> & Pick<Agent, "id">): Agent {
 }
 
 describe("shouldClearAgentAttention", () => {
-  it("returns true only when the agent is connected and requires attention", () => {
+  it("clears a finished attention when the user sends a prompt", () => {
+    expect(
+      shouldClearAgentAttention({
+        agentId: "agent-1",
+        isConnected: true,
+        requiresAttention: true,
+        attentionReason: "finished",
+        trigger: "prompt-send",
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a finished attention when the workspace is opened or left", () => {
+    for (const trigger of ["focus-entry", "input-focus", "agent-blur"] as const) {
+      expect(
+        shouldClearAgentAttention({
+          agentId: "agent-1",
+          isConnected: true,
+          requiresAttention: true,
+          attentionReason: "finished",
+          trigger,
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it("keeps a finished attention when no trigger names a sent prompt", () => {
     expect(
       shouldClearAgentAttention({
         agentId: "agent-1",
@@ -47,7 +73,41 @@ describe("shouldClearAgentAttention", () => {
         requiresAttention: true,
         attentionReason: "finished",
       }),
+    ).toBe(false);
+  });
+
+  it("keeps clearing an error attention on every trigger", () => {
+    for (const trigger of ["focus-entry", "input-focus", "prompt-send", "agent-blur"] as const) {
+      expect(
+        shouldClearAgentAttention({
+          agentId: "agent-1",
+          isConnected: true,
+          requiresAttention: true,
+          attentionReason: "error",
+          trigger,
+        }),
+      ).toBe(true);
+    }
+    expect(
+      shouldClearAgentAttention({
+        agentId: "agent-1",
+        isConnected: true,
+        requiresAttention: true,
+        attentionReason: "error",
+      }),
     ).toBe(true);
+  });
+
+  it("returns false for an error attention when the app is disconnected", () => {
+    expect(
+      shouldClearAgentAttention({
+        agentId: "agent-1",
+        isConnected: false,
+        requiresAttention: true,
+        attentionReason: "error",
+        trigger: "prompt-send",
+      }),
+    ).toBe(false);
   });
 
   it("returns false when the app is disconnected", () => {
@@ -83,7 +143,18 @@ describe("shouldClearAgentAttention", () => {
     ).toBe(false);
   });
 
-  it("returns false for permission-shaped attention", () => {
+  it("returns false for permission-shaped attention on every trigger", () => {
+    for (const trigger of ["focus-entry", "input-focus", "prompt-send", "agent-blur"] as const) {
+      expect(
+        shouldClearAgentAttention({
+          agentId: "agent-1",
+          isConnected: true,
+          requiresAttention: true,
+          attentionReason: "permission",
+          trigger,
+        }),
+      ).toBe(false);
+    }
     expect(
       shouldClearAgentAttention({
         agentId: "agent-1",
@@ -107,39 +178,47 @@ describe("shouldClearAgentAttention", () => {
     ).toBe(false);
   });
 
-  it("returns true for explicit follow-up entrypoints after deferred focus clear", () => {
+  it("returns false for an error focus entry when clear was deferred while already focused", () => {
     expect(
       shouldClearAgentAttention({
         agentId: "agent-1",
         isConnected: true,
         requiresAttention: true,
-        attentionReason: "finished",
-        trigger: "input-focus",
+        attentionReason: "error",
+        trigger: "focus-entry",
         hasDeferredFocusEntryClear: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
+  });
 
-    expect(
-      shouldClearAgentAttention({
-        agentId: "agent-1",
-        isConnected: true,
-        requiresAttention: true,
-        attentionReason: "finished",
-        trigger: "prompt-send",
-        hasDeferredFocusEntryClear: true,
-      }),
-    ).toBe(true);
+  it("returns true for explicit follow-up entrypoints of an error after deferred focus clear", () => {
+    for (const trigger of ["input-focus", "prompt-send", "agent-blur"] as const) {
+      expect(
+        shouldClearAgentAttention({
+          agentId: "agent-1",
+          isConnected: true,
+          requiresAttention: true,
+          attentionReason: "error",
+          trigger,
+          hasDeferredFocusEntryClear: true,
+        }),
+      ).toBe(true);
+    }
+  });
 
-    expect(
-      shouldClearAgentAttention({
-        agentId: "agent-1",
-        isConnected: true,
-        requiresAttention: true,
-        attentionReason: "finished",
-        trigger: "agent-blur",
-        hasDeferredFocusEntryClear: true,
-      }),
-    ).toBe(true);
+  it("clears a finished attention on a sent prompt after deferred focus clear, and on nothing else", () => {
+    const base = {
+      agentId: "agent-1",
+      isConnected: true,
+      requiresAttention: true,
+      attentionReason: "finished",
+      hasDeferredFocusEntryClear: true,
+    } as const;
+
+    expect(shouldClearAgentAttention({ ...base, trigger: "prompt-send" })).toBe(true);
+    expect(shouldClearAgentAttention({ ...base, trigger: "input-focus" })).toBe(false);
+    expect(shouldClearAgentAttention({ ...base, trigger: "agent-blur" })).toBe(false);
+    expect(shouldClearAgentAttention({ ...base, trigger: "focus-entry" })).toBe(false);
   });
 });
 
